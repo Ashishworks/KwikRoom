@@ -26,13 +26,17 @@ io.on("connection", (socket) => {
     console.log(`${socket.id} joined ${roomCode}`)
   })
 
-  socket.on("message", ({ room, message }) => {
-
-    console.log("MESSAGE:", message)
+  socket.on("message", ({
+    room,
+    username,
+    message
+  }) => {
 
     io.to(room).emit("message", {
+      username,
       text: message
     })
+
   })
 
   socket.on("disconnect", () => {

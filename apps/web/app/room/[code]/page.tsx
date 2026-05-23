@@ -4,76 +4,97 @@ import { use, useEffect, useState } from "react"
 import { socket } from "@/lib/socket"
 
 export default function RoomPage({
-  params
+    params
 }: {
-  params: Promise<{ code: string }>
+    params: Promise<{ code: string }>
 }) {
 
-  const { code } = use(params)
+    const { code } = use(params)
 
-  const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<string[]>([])
+    const [message, setMessage] = useState("")
+    const [messages, setMessages] = useState<
+        {
+            username: string
+            text: string
+        }[]
+    >([])
+    const [username, setUsername] = useState("")
+    useEffect(() => {
 
-  useEffect(() => {
+        socket.emit("join-room", code)
 
-    socket.emit("join-room", code)
+        socket.on("message", (msg) => {
 
-    socket.on("message", (msg) => {
-      setMessages((prev) => [...prev, msg.text])
-    })
+            setMessages((prev) => [
+                ...prev,
+                msg
+            ])
 
-    return () => {
-      socket.off("message")
+        })
+
+        return () => {
+            socket.off("message")
+        }
+
+    }, [code])
+
+    const sendMessage = () => {
+
+        socket.emit("message", {
+            room: code,
+            username,
+            message
+        })
+
+        setMessage("")
     }
+    useEffect(() => {
 
-  }, [code])
+        const savedUsername =
+            localStorage.getItem("username")
 
-  const sendMessage = () => {
+        if (savedUsername) {
+            setUsername(savedUsername)
+        }
 
-    socket.emit("message", {
-      room: code,
-      message
-    })
+    }, [])
 
-    setMessage("")
-  }
+    return (
+        <main className="p-10">
 
-  return (
-    <main className="p-10">
+            <h1 className="text-3xl font-bold mb-6">
+                Room {code}
+            </h1>
 
-      <h1 className="text-3xl font-bold mb-6">
-        Room {code}
-      </h1>
+            <div className="border h-96 p-4 overflow-y-auto mb-4">
 
-      <div className="border h-96 p-4 overflow-y-auto mb-4">
+                {messages.map((msg, i) => (
+                    <div key={i}>
+                        <b>{msg.username}: </b> {msg.text}
+                    </div>
+                ))}
 
-        {messages.map((msg, i) => (
-          <div key={i}>
-            {msg}
-          </div>
-        ))}
+            </div>
 
-      </div>
+            <div className="flex gap-2">
 
-      <div className="flex gap-2">
+                <input
+                    value={message}
+                    onChange={(e) =>
+                        setMessage(e.target.value)
+                    }
+                    className="border px-4 py-2 flex-1"
+                />
 
-        <input
-          value={message}
-          onChange={(e) =>
-            setMessage(e.target.value)
-          }
-          className="border px-4 py-2 flex-1"
-        />
+                <button
+                    onClick={sendMessage}
+                    className="bg-black text-white px-4 py-2"
+                >
+                    Send
+                </button>
 
-        <button
-          onClick={sendMessage}
-          className="bg-black text-white px-4 py-2"
-        >
-          Send
-        </button>
+            </div>
 
-      </div>
-
-    </main>
-  )
+        </main>
+    )
 }
