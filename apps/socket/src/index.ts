@@ -16,23 +16,27 @@ const io = new Server(httpServer, {
 })
 
 io.on("connection", (socket) => {
+
   console.log("User connected:", socket.id)
 
   socket.on("join-room", (roomCode) => {
+
     socket.join(roomCode)
 
     console.log(`${socket.id} joined ${roomCode}`)
   })
 
   socket.on("message", ({ room, message }) => {
+
+    console.log("MESSAGE:", message)
+
     io.to(room).emit("message", {
-      sender: socket.id,
       text: message
     })
   })
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id)
+    console.log("Disconnected:", socket.id)
   })
 })
 
