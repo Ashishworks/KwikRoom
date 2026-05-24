@@ -1,6 +1,14 @@
 "use client"
 
-import { use, useEffect, useState } from "react"
+import {
+    use,
+    useEffect,
+    useState
+} from "react"
+
+import { useRouter }
+from "next/navigation"
+
 import { socket } from "@/lib/socket"
 
 export default function RoomPage({
@@ -11,17 +19,46 @@ export default function RoomPage({
 
     const { code } = use(params)
 
-    const [message, setMessage] = useState("")
-    const [messages, setMessages] = useState<
-        {
-            username: string
-            text: string
-        }[]
-    >([])
-    const [username, setUsername] = useState("")
+    const router = useRouter()
+
+    const [message, setMessage] =
+        useState("")
+
+    const [messages, setMessages] =
+        useState<
+            {
+                username: string
+                text: string
+            }[]
+        >([])
+
+    const [username, setUsername] =
+        useState("")
+
+    const [onlineUsers, setOnlineUsers] =
+        useState<string[]>([])
+
     useEffect(() => {
 
-        socket.emit("join-room", code)
+        const savedUsername =
+            localStorage.getItem("username")
+
+        if (
+            !savedUsername ||
+            savedUsername.trim() === ""
+        ) {
+
+            router.push("/")
+
+            return
+        }
+
+        setUsername(savedUsername)
+
+        socket.emit("join-room", {
+            room: code,
+            username: savedUsername
+        })
 
         socket.on("message", (msg) => {
 
@@ -32,13 +69,27 @@ export default function RoomPage({
 
         })
 
+        socket.on(
+            "online-users",
+            (users) => {
+
+                setOnlineUsers(users)
+
+            }
+        )
+
         return () => {
+
             socket.off("message")
+            socket.off("online-users")
+
         }
 
-    }, [code])
+    }, [code, router])
 
     const sendMessage = () => {
+
+        if (!message.trim()) return
 
         socket.emit("message", {
             room: code,
@@ -48,16 +99,6 @@ export default function RoomPage({
 
         setMessage("")
     }
-    useEffect(() => {
-
-        const savedUsername =
-            localStorage.getItem("username")
-
-        if (savedUsername) {
-            setUsername(savedUsername)
-        }
-
-    }, [])
 
     return (
         <main className="p-10">
@@ -66,12 +107,41 @@ export default function RoomPage({
                 Room {code}
             </h1>
 
-            <div className="border h-96 p-4 overflow-y-auto mb-4">
+            <div className="mb-6">
+
+                <h2 className="font-bold text-xl mb-3">
+                    Online Users
+                </h2>
+
+                <div className="flex gap-2 flex-wrap">
+
+                    {onlineUsers.map((user, i) => (
+
+                        <div
+                            key={i}
+                            className="bg-green-100 px-3 py-1 rounded-full"
+                        >
+                            {user}
+                        </div>
+
+                    ))}
+
+                </div>
+
+            </div>
+
+            <div className="border h-96 p-4 overflow-y-auto mb-4 rounded-lg">
 
                 {messages.map((msg, i) => (
-                    <div key={i}>
-                        <b>{msg.username}: </b> {msg.text}
+
+                    <div
+                        key={i}
+                        className="mb-2"
+                    >
+                        <b>{msg.username}: </b>
+                        {msg.text}
                     </div>
+
                 ))}
 
             </div>
@@ -83,12 +153,13 @@ export default function RoomPage({
                     onChange={(e) =>
                         setMessage(e.target.value)
                     }
-                    className="border px-4 py-2 flex-1"
+                    className="border px-4 py-2 flex-1 rounded-lg"
+                    placeholder="Type a message..."
                 />
 
                 <button
                     onClick={sendMessage}
-                    className="bg-black text-white px-4 py-2"
+                    className="bg-black text-white px-4 py-2 rounded-lg"
                 >
                     Send
                 </button>
