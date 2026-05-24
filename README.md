@@ -2,13 +2,13 @@
 
 KwikRoom is a realtime room-based communication platform built as a Chrome Extension using Plasmo, React, TypeScript, Socket.IO, Redis, Prisma, and Supabase.
 
-The project focuses on ultra-fast temporary and persistent room communication with modern realtime architecture, scalable backend design, and beautiful animated UI.
+The project focuses on ultra-fast temporary and persistent room communication with modern realtime architecture, scalable backend design, and clean UI/UX.
 
 ---
 
-# 🚀 Features
+# Features
 
-## ✅ Realtime Communication
+## Realtime Communication
 
 - Create realtime rooms instantly
 - Join rooms using unique 5-letter room codes
@@ -20,7 +20,7 @@ The project focuses on ultra-fast temporary and persistent room communication wi
 
 ---
 
-## ✅ Chrome Extension Support
+## Chrome Extension Support
 
 Built using:
 
@@ -33,12 +33,12 @@ Features:
 
 - Opens directly inside Chrome Sidepanel
 - Persistent websocket connection
-- Lightweight and fast
+- Lightweight architecture
 - Native extension experience
 
 ---
 
-## ✅ Modern UI/UX
+## Modern UI/UX
 
 - Animated chat interface
 - Framer Motion transitions
@@ -51,7 +51,7 @@ Features:
 
 ---
 
-## ✅ Backend Architecture
+## Backend Architecture
 
 Dedicated Socket.IO server separated from frontend.
 
@@ -65,7 +65,7 @@ Dedicated Socket.IO server separated from frontend.
 
 ---
 
-## ✅ Redis-Based Realtime State
+## Redis-Based Realtime State
 
 Redis is used for:
 
@@ -73,11 +73,11 @@ Redis is used for:
 - Online presence tracking
 - Temporary room management
 - Room expiration handling
-- Fast ephemeral state
+- Fast ephemeral state management
 
 ---
 
-## ✅ Persistent Database Support
+## Persistent Database Support
 
 Supabase PostgreSQL + Prisma are used for:
 
@@ -88,7 +88,7 @@ Supabase PostgreSQL + Prisma are used for:
 
 ---
 
-# 🏗️ Monorepo Structure
+# Monorepo Structure
 
 ```bash
 kwikroom/
@@ -112,7 +112,7 @@ kwikroom/
 
 ---
 
-# ⚙️ Tech Stack
+# Tech Stack
 
 ## Frontend
 
@@ -133,7 +133,7 @@ kwikroom/
 
 ---
 
-## Database & State
+## Database & State Management
 
 - Redis (Upstash)
 - Supabase PostgreSQL
@@ -141,7 +141,7 @@ kwikroom/
 
 ---
 
-# 🔌 Socket Architecture
+# Socket Architecture
 
 Socket logic is modularized into separate event handlers.
 
@@ -163,7 +163,7 @@ Handles:
 
 - Joining existing rooms
 - Presence updates
-- Broadcasting user join
+- Broadcasting user join events
 
 ---
 
@@ -188,7 +188,7 @@ Handles:
 
 ---
 
-# 🧠 Shared Packages
+# Shared Packages
 
 ## `packages/db`
 
@@ -199,7 +199,7 @@ Exports:
 Purpose:
 
 - Prevent multiple Prisma client instances
-- Shared database access across apps
+- Shared database access across applications
 
 ---
 
@@ -212,7 +212,7 @@ Exports:
 Purpose:
 
 - Shared Redis connection
-- Centralized caching/state layer
+- Centralized caching and state management
 
 ---
 
@@ -228,7 +228,7 @@ Purpose:
 
 ---
 
-# 🗄️ Database Schema
+# Database Schema
 
 ## Room Model
 
@@ -244,9 +244,9 @@ model Room {
 
 ---
 
-# 💬 Current Working Features
+# Current Working Features
 
-## ✅ Fully Working
+## Implemented
 
 - Realtime room creation
 - Join via room code
@@ -260,7 +260,7 @@ model Room {
 
 ---
 
-# 🔄 Current Flow
+# Application Flow
 
 ## Room Creation
 
@@ -308,7 +308,7 @@ Realtime UI update
 
 ---
 
-# 🧩 Chrome Extension Flow
+# Chrome Extension Architecture
 
 ## Background Script
 
@@ -338,13 +338,13 @@ The sidepanel acts as:
 
 ---
 
-# 🎨 UI Design Philosophy
+# UI Design Philosophy
 
 KwikRoom focuses on:
 
 - Minimalism
 - Fast interaction
-- Realtime feel
+- Realtime responsiveness
 - Smooth animations
 - Modern developer-tool aesthetics
 
@@ -357,7 +357,7 @@ Inspired by:
 
 ---
 
-# 📦 Installation
+# Installation
 
 ## Clone Repository
 
@@ -376,7 +376,7 @@ npm install
 
 ---
 
-# 🔐 Environment Variables
+# Environment Variables
 
 Create:
 
@@ -401,7 +401,7 @@ SUPABASE_ANON_KEY=
 
 ---
 
-# 🛠️ Prisma Setup
+# Prisma Setup
 
 Generate Prisma client:
 
@@ -417,7 +417,7 @@ npx prisma db push
 
 ---
 
-# ▶️ Run Development Servers
+# Run Development Servers
 
 ## Run Socket Server
 
@@ -440,7 +440,7 @@ npm run dev
 ## Load Extension in Chrome
 
 1. Open Chrome
-2. Go to:
+2. Navigate to:
 
 ```text
 chrome://extensions
@@ -466,32 +466,32 @@ build/chrome-mv3-dev
 
 ---
 
-# 📡 Future Roadmap
+# Future Roadmap
 
 ## Planned Features
 
-### 🔹 Persistent Message Storage
+### Persistent Message Storage
 
 - Save messages to PostgreSQL
 - Chat history support
 
 ---
 
-### 🔹 Load Last 15 Messages
+### Load Last 15 Messages
 
 - Fetch recent messages on room join
 - Better user continuity
 
 ---
 
-### 🔹 Infinite Scroll Pagination
+### Infinite Scroll Pagination
 
 - Older message loading
 - Optimized performance
 
 ---
 
-### 🔹 Room Admin Controls
+### Room Admin Controls
 
 - Kick users
 - Delete room
@@ -499,7 +499,7 @@ build/chrome-mv3-dev
 
 ---
 
-### 🔹 Authentication
+### Authentication
 
 - User accounts
 - Google login
@@ -507,31 +507,31 @@ build/chrome-mv3-dev
 
 ---
 
-### 🔹 Typing Indicators
+### Typing Indicators
 
 Realtime typing status.
 
 ---
 
-### 🔹 Read Receipts
+### Read Receipts
 
 Track seen messages.
 
 ---
 
-### 🔹 File Sharing
+### File Sharing
 
 Upload and share files.
 
 ---
 
-### 🔹 Voice Rooms
+### Voice Rooms
 
 Realtime audio communication.
 
 ---
 
-# 🧪 Development Goals
+# Development Goals
 
 The project aims to explore:
 
@@ -544,7 +544,7 @@ The project aims to explore:
 
 ---
 
-# 📚 Learning Outcomes
+# Learning Outcomes
 
 This project demonstrates understanding of:
 
@@ -559,28 +559,26 @@ This project demonstrates understanding of:
 
 ---
 
-# 🤝 Contributing
+# Contributing
 
-Contributions are welcome.
-
-Possible areas:
+Contributions are welcome in areas such as:
 
 - UI improvements
 - Performance optimization
 - Backend scaling
-- Security improvements
-- New realtime features
+- Security enhancements
+- Additional realtime features
 
 ---
 
-# 📄 License
+# License
 
 MIT License
 
 ---
 
-# 👨‍💻 Author
+# Author
 
 Built by Ashish.
 
-KwikRoom is designed as a modern realtime communication playground combining extension engineering, distributed systems concepts, and scalable realtime architecture.
+KwikRoom is designed as a modern realtime communication platform combining extension engineering, distributed systems concepts, and scalable realtime architecture.
