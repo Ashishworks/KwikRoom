@@ -6,3 +6,34 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/* Chrome / Edge */
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+/* ONLY SHOW WHILE ACTIVE SCROLLING */
+*:active::-webkit-scrollbar-thumb,
+*:focus::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}

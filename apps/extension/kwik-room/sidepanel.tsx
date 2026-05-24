@@ -47,90 +47,97 @@ function Sidepanel() {
 
   useEffect(() => {
 
-  const listener = (
-    message: any
-  ) => {
+    const savedUsername =
+      localStorage.getItem("username")
 
-    console.log(
-      "SIDEPANEL RECEIVED:",
-      message
-    )
+    if (savedUsername) {
+      setUsername(savedUsername)
+    }
 
-    // NEW MESSAGE
-    if (
-      message.type ===
-      "new-message"
-    ) {
+    const listener = (
+      message: any
+    ) => {
 
-      setMessages((prev) => [
-        ...prev,
-        message.payload
-      ])
+      console.log(
+        "SIDEPANEL RECEIVED:",
+        message
+      )
+
+      // NEW MESSAGE
+      if (
+        message.type ===
+        "new-message"
+      ) {
+
+        setMessages((prev) => [
+          ...prev,
+          message.payload
+        ])
+
+      }
+
+      // ONLINE USERS
+      if (
+        message.type ===
+        "online-users"
+      ) {
+
+        setOnlineUsers(
+          message.payload
+        )
+
+      }
+
+      // ROOM CREATED
+      if (
+        message.type ===
+        "room-created"
+      ) {
+
+        const createdRoomCode =
+          message.payload.code
+
+        setCurrentRoom(
+          createdRoomCode
+        )
+
+        setRoomCode(
+          createdRoomCode
+        )
+
+        chrome.runtime.sendMessage({
+
+          type: "join-room",
+
+          payload: {
+            room:
+              createdRoomCode,
+
+            username:
+              localStorage.getItem(
+                "username"
+              )
+          }
+
+        })
+
+      }
 
     }
 
-    // ONLINE USERS
-    if (
-      message.type ===
-      "online-users"
-    ) {
-
-      setOnlineUsers(
-        message.payload
-      )
-
-    }
-
-    // ROOM CREATED
-    if (
-      message.type ===
-      "room-created"
-    ) {
-
-      const roomCode =
-        message.payload.code
-
-      setCurrentRoom(
-        roomCode
-      )
-
-      setRoomCode(
-        roomCode
-      )
-
-      // AUTO JOIN CREATED ROOM
-      chrome.runtime.sendMessage({
-
-        type: "join-room",
-
-        payload: {
-          room: roomCode,
-
-          username:
-            localStorage.getItem(
-              "username"
-            )
-        }
-
-      })
-
-    }
-
-  }
-
-  chrome.runtime.onMessage.addListener(
-    listener
-  )
-
-  return () => {
-
-    chrome.runtime.onMessage.removeListener(
+    chrome.runtime.onMessage.addListener(
       listener
     )
 
-  }
+    return () => {
 
-}, [])
+      chrome.runtime.onMessage.removeListener(
+        listener
+      )
+
+    }
+
+  }, [])
 
   useEffect(() => {
 
@@ -564,7 +571,9 @@ function Sidepanel() {
                   className={`
                     flex
                     ${
-                      isOwn
+                      msg.username === "System"
+                        ? "justify-center"
+                        : isOwn
                         ? "justify-end"
                         : "justify-start"
                     }
@@ -579,35 +588,75 @@ function Sidepanel() {
                       py-3
                       shadow-lg
                       ${
-                        isOwn
+                        msg.username === "System"
+                          ? "bg-zinc-900/60 border border-zinc-800 text-center"
+                          : isOwn
                           ? "bg-indigo-600"
                           : "bg-zinc-900 border border-zinc-800"
                       }
                     `}
                   >
 
-                    <p
-                      className={`
-                        text-xs
-                        mb-1
-                        ${
-                          isOwn
-                            ? "text-indigo-200"
-                            : "text-indigo-400"
-                        }
-                      `}
-                    >
-                      {msg.username}
-                    </p>
+                    {
+                      msg.username ===
+                      "System" ? (
 
-                    <p
-                      className="
-                        text-sm
-                        break-words
-                      "
-                    >
-                      {msg.text}
-                    </p>
+                        <p
+                          className="
+                            text-xs
+                            text-zinc-400
+                            flex
+                            items-center
+                            gap-1.5
+                          "
+                        >
+
+                          <span
+                            className="
+                              text-indigo-400
+                              font-medium
+                            "
+                          >
+                            System
+                          </span>
+
+                          <span>
+                            {msg.text}
+                          </span>
+
+                        </p>
+
+                      ) : (
+
+                        <>
+
+                          <p
+                            className={`
+                              text-xs
+                              mb-1
+                              ${
+                                isOwn
+                                  ? "text-indigo-200"
+                                  : "text-indigo-400"
+                              }
+                            `}
+                          >
+                            {msg.username}
+                          </p>
+
+                          <p
+                            className="
+                              text-sm
+                              break-words
+                            "
+                          >
+                            {msg.text}
+                          </p>
+
+                        </>
+
+                      )
+                    }
 
                   </div>
 
