@@ -1,8 +1,17 @@
 {
+  "name": "kwikroom",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "@upstash/redis": "^1.38.0",
     "nanoid": "^5.1.11",
     "prisma": "^6.19.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1"
   }
 }

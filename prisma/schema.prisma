@@ -8,8 +8,15 @@ datasource db {
 }
 
 model Room {
-  id            String   @id @default(cuid())
-  code          String   @unique
-  isPersistent  Boolean  @default(false)
-  createdAt     DateTime @default(now())
+
+  id           String   @id @default(cuid())
+
+  code         String   @unique
+
+  adminId      String
+
+  isPersistent Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+
 }

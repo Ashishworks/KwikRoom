@@ -1,6 +1,6 @@
-import { customAlphabet } from "nanoid"
+// import { customAlphabet } from "nanoid"
 
-const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+// const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-export const generateRoomCode =
-  customAlphabet(alphabet, 5)
+// export const generateRoomCode =
+//   customAlphabet(alphabet, 5)

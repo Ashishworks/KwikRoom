@@ -1,112 +1,89 @@
 import express from "express"
-import { createServer } from "http"
-import { Server } from "socket.io"
+
+import { createServer }
+from "http"
+
+import { Server }
+from "socket.io"
+
 import cors from "cors"
 
+import { createRoomEvent }
+from "./events/room/createRoom.js"
+
+import { joinRoomEvent }
+from "./events/room/joinRoom.js"
+
+import { leaveRoomEvent }
+from "./events/room/leaveRoom.js"
+
+import { sendMessageEvent }
+from "./events/message/sendMessage.js"
+
 const app = express()
-const roomUsers = new Map<
-  string,
-  string[]
->()
+
 app.use(cors())
 
-const httpServer = createServer(app)
+app.use(express.json())
 
-const io = new Server(httpServer, {
-  cors: {
-  origin: true,
-  credentials: true
-}
-})
+const httpServer =
+  createServer(app)
 
-io.on("connection", (socket) => {
-
-  console.log("User connected:", socket.id)
-
-  socket.on("join-room", ({
-    room,
-    username
-  }) => {
-
-    socket.join(room)
-
-    socket.data.room = room
-    socket.data.username = username
-
-    const users =
-      roomUsers.get(room) || []
-
-    if (!users.includes(username)) {
-      users.push(username)
+const io = new Server(
+  httpServer,
+  {
+    cors: {
+      origin: true,
+      credentials: true
     }
+  }
+)
 
-    roomUsers.set(room, users)
+io.on(
+  "connection",
 
-    io.to(room).emit(
-      "online-users",
-      users
+  (socket) => {
+
+    console.log(
+      "User connected:",
+      socket.id
     )
 
-    io.to(room).emit("message", {
-      username: "System",
-      text: `${username} joined`
-    })
-
-  })
-
-  socket.on("message", ({
-    room,
-    username,
-    message
-  }) => {
-
-    io.to(room).emit("message", {
-      username,
-      text: message
-    })
-
-  })
-
-  socket.on("disconnect", () => {
-
-  const room =
-    socket.data.room
-
-  const username =
-    socket.data.username
-
-  if (!room || !username) return
-
-  const users =
-    roomUsers.get(room) || []
-
-  const updatedUsers =
-    users.filter(
-      (u) => u !== username
+    // CREATE ROOM
+    createRoomEvent(
+      io,
+      socket
     )
 
-  roomUsers.set(
-    room,
-    updatedUsers
-  )
+    // JOIN ROOM
+    joinRoomEvent(
+      io,
+      socket
+    )
 
-  io.to(room).emit(
-    "online-users",
-    updatedUsers
-  )
+    // SEND MESSAGE
+    sendMessageEvent(
+      io,
+      socket
+    )
 
-  io.to(room).emit("message", {
-    username: "System",
-    text: `${username} left`
-  })
+    // LEAVE ROOM
+    leaveRoomEvent(
+      io,
+      socket
+    )
 
-  console.log(
-    `${username} disconnected`
-  )
+  }
+)
 
-})
-})
+httpServer.listen(
+  4000,
 
-httpServer.listen(4000, () => {
-  console.log("Socket server running on port 4000")
-})
+  () => {
+
+    console.log(
+      "Socket server running on port 4000"
+    )
+
+  }
+)

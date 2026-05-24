@@ -47,41 +47,90 @@ function Sidepanel() {
 
   useEffect(() => {
 
-    const savedUsername =
-      localStorage.getItem("username")
+  const listener = (
+    message: any
+  ) => {
 
-    if (savedUsername) {
-      setUsername(savedUsername)
-    }
-
-    chrome.runtime.onMessage.addListener(
-      (message) => {
-
-        if (
-          message.type === "new-message"
-        ) {
-
-          setMessages((prev) => [
-            ...prev,
-            message.payload
-          ])
-
-        }
-
-        if (
-          message.type === "online-users"
-        ) {
-
-          setOnlineUsers(
-            message.payload
-          )
-
-        }
-
-      }
+    console.log(
+      "SIDEPANEL RECEIVED:",
+      message
     )
 
-  }, [])
+    // NEW MESSAGE
+    if (
+      message.type ===
+      "new-message"
+    ) {
+
+      setMessages((prev) => [
+        ...prev,
+        message.payload
+      ])
+
+    }
+
+    // ONLINE USERS
+    if (
+      message.type ===
+      "online-users"
+    ) {
+
+      setOnlineUsers(
+        message.payload
+      )
+
+    }
+
+    // ROOM CREATED
+    if (
+      message.type ===
+      "room-created"
+    ) {
+
+      const roomCode =
+        message.payload.code
+
+      setCurrentRoom(
+        roomCode
+      )
+
+      setRoomCode(
+        roomCode
+      )
+
+      // AUTO JOIN CREATED ROOM
+      chrome.runtime.sendMessage({
+
+        type: "join-room",
+
+        payload: {
+          room: roomCode,
+
+          username:
+            localStorage.getItem(
+              "username"
+            )
+        }
+
+      })
+
+    }
+
+  }
+
+  chrome.runtime.onMessage.addListener(
+    listener
+  )
+
+  return () => {
+
+    chrome.runtime.onMessage.removeListener(
+      listener
+    )
+
+  }
+
+}, [])
 
   useEffect(() => {
 
@@ -91,6 +140,29 @@ function Sidepanel() {
 
   }, [messages])
 
+  // CREATE ROOM
+  const createRoom = () => {
+
+    if (!username.trim()) return
+
+    localStorage.setItem(
+      "username",
+      username
+    )
+
+    chrome.runtime.sendMessage({
+
+      type: "create-room",
+
+      payload: {
+        username
+      }
+
+    })
+
+  }
+
+  // JOIN ROOM
   const joinRoom = () => {
 
     if (
@@ -118,6 +190,7 @@ function Sidepanel() {
 
   }
 
+  // SEND MESSAGE
   const sendMessage = () => {
 
     if (!message.trim()) return
@@ -209,7 +282,9 @@ function Sidepanel() {
             <input
               value={username}
               onChange={(e) =>
-                setUsername(e.target.value)
+                setUsername(
+                  e.target.value
+                )
               }
               placeholder="Username"
               className="
@@ -258,10 +333,24 @@ function Sidepanel() {
                 py-3
                 font-medium
                 transition-all
-                duration-200
               "
             >
               Join Room
+            </button>
+
+            <button
+              onClick={createRoom}
+              className="
+                w-full
+                bg-zinc-800
+                hover:bg-zinc-700
+                rounded-xl
+                py-3
+                font-medium
+                transition-all
+              "
+            >
+              Create Room
             </button>
 
           </div>
@@ -274,7 +363,7 @@ function Sidepanel() {
 
   }
 
-  // CHAT UI
+  // CHAT SCREEN
   return (
 
     <div
@@ -382,50 +471,52 @@ function Sidepanel() {
           "
         >
 
-          {onlineUsers.map((user, i) => (
+          {onlineUsers.map(
+            (user, i) => (
 
-            <motion.div
+              <motion.div
 
-              key={i}
+                key={i}
 
-              initial={{
-                opacity: 0,
-                scale: 0.8
-              }}
+                initial={{
+                  opacity: 0,
+                  scale: 0.8
+                }}
 
-              animate={{
-                opacity: 1,
-                scale: 1
-              }}
+                animate={{
+                  opacity: 1,
+                  scale: 1
+                }}
 
-              className="
-                flex
-                items-center
-                gap-2
-                bg-zinc-900
-                border
-                border-zinc-800
-                rounded-full
-                px-3
-                py-1
-                text-sm
-              "
-            >
-
-              <div
                 className="
-                  w-2
-                  h-2
+                  flex
+                  items-center
+                  gap-2
+                  bg-zinc-900
+                  border
+                  border-zinc-800
                   rounded-full
-                  bg-green-500
+                  px-3
+                  py-1
+                  text-sm
                 "
-              />
+              >
 
-              {user}
+                <div
+                  className="
+                    w-2
+                    h-2
+                    rounded-full
+                    bg-green-500
+                  "
+                />
 
-            </motion.div>
+                {user}
 
-          ))}
+              </motion.div>
+
+            )
+          )}
 
         </div>
 
@@ -443,86 +534,89 @@ function Sidepanel() {
 
         <AnimatePresence>
 
-          {messages.map((msg, i) => {
+          {messages.map(
+            (msg, i) => {
 
-            const isOwn =
-              msg.username === username
+              const isOwn =
+                msg.username ===
+                username
 
-            return (
+              return (
 
-              <motion.div
+                <motion.div
 
-                key={i}
+                  key={i}
 
-                initial={{
-                  opacity: 0,
-                  y: 10
-                }}
+                  initial={{
+                    opacity: 0,
+                    y: 10
+                  }}
 
-                animate={{
-                  opacity: 1,
-                  y: 0
-                }}
+                  animate={{
+                    opacity: 1,
+                    y: 0
+                  }}
 
-                exit={{
-                  opacity: 0
-                }}
+                  exit={{
+                    opacity: 0
+                  }}
 
-                className={`
-                  flex
-                  ${
-                    isOwn
-                      ? "justify-end"
-                      : "justify-start"
-                  }
-                `}
-              >
-
-                <div
                   className={`
-                    max-w-[80%]
-                    rounded-2xl
-                    px-4
-                    py-3
-                    shadow-lg
+                    flex
                     ${
                       isOwn
-                        ? "bg-indigo-600"
-                        : "bg-zinc-900 border border-zinc-800"
+                        ? "justify-end"
+                        : "justify-start"
                     }
                   `}
                 >
 
-                  <p
+                  <div
                     className={`
-                      text-xs
-                      mb-1
+                      max-w-[80%]
+                      rounded-2xl
+                      px-4
+                      py-3
+                      shadow-lg
                       ${
                         isOwn
-                          ? "text-indigo-200"
-                          : "text-indigo-400"
+                          ? "bg-indigo-600"
+                          : "bg-zinc-900 border border-zinc-800"
                       }
                     `}
                   >
-                    {msg.username}
-                  </p>
 
-                  <p
-                    className="
-                      text-sm
-                      break-words
-                    "
-                  >
-                    {msg.text}
-                  </p>
+                    <p
+                      className={`
+                        text-xs
+                        mb-1
+                        ${
+                          isOwn
+                            ? "text-indigo-200"
+                            : "text-indigo-400"
+                        }
+                      `}
+                    >
+                      {msg.username}
+                    </p>
 
-                </div>
+                    <p
+                      className="
+                        text-sm
+                        break-words
+                      "
+                    >
+                      {msg.text}
+                    </p>
 
-              </motion.div>
+                  </div>
 
-            )
+                </motion.div>
 
-          })}
+              )
+
+            }
+          )}
 
         </AnimatePresence>
 
@@ -552,12 +646,20 @@ function Sidepanel() {
           <input
             value={message}
             onChange={(e) =>
-              setMessage(e.target.value)
+              setMessage(
+                e.target.value
+              )
             }
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+
+              if (
+                e.key === "Enter"
+              ) {
+
                 sendMessage()
+
               }
+
             }}
             placeholder="Type a message..."
             className="
@@ -582,7 +684,6 @@ function Sidepanel() {
               p-3
               rounded-xl
               transition-all
-              duration-200
             "
           >
 
