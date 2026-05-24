@@ -1,4 +1,21 @@
-import { useEffect, useState } from "react"
+import "./style.css"
+
+import {
+  Send,
+  Users,
+  Wifi
+} from "lucide-react"
+
+import {
+  motion,
+  AnimatePresence
+} from "framer-motion"
+
+import {
+  useEffect,
+  useRef,
+  useState
+} from "react"
 
 function Sidepanel() {
 
@@ -25,6 +42,9 @@ function Sidepanel() {
   const [onlineUsers, setOnlineUsers] =
     useState<string[]>([])
 
+  const messagesEndRef =
+    useRef<HTMLDivElement | null>(null)
+
   useEffect(() => {
 
     const savedUsername =
@@ -36,10 +56,7 @@ function Sidepanel() {
 
     chrome.runtime.onMessage.addListener(
       (message) => {
-        console.log(
-          "SIDEPANEL RECEIVED:",
-          message
-        )
+
         if (
           message.type === "new-message"
         ) {
@@ -66,11 +83,19 @@ function Sidepanel() {
 
   }, [])
 
+  useEffect(() => {
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth"
+    })
+
+  }, [messages])
+
   const joinRoom = () => {
 
     if (
-      !roomCode ||
-      !username
+      !roomCode.trim() ||
+      !username.trim()
     ) return
 
     localStorage.setItem(
@@ -79,15 +104,18 @@ function Sidepanel() {
     )
 
     chrome.runtime.sendMessage({
+
       type: "join-room",
 
       payload: {
         room: roomCode,
         username
       }
+
     })
 
     setCurrentRoom(roomCode)
+
   }
 
   const sendMessage = () => {
@@ -107,137 +135,469 @@ function Sidepanel() {
     })
 
     setMessage("")
+
   }
 
+  // JOIN SCREEN
   if (!currentRoom) {
 
     return (
 
       <div
-        style={{
-          width: 350,
-          padding: 20
-        }}
+        className="
+          h-screen
+          bg-zinc-950
+          text-white
+          flex
+          items-center
+          justify-center
+          p-6
+        "
       >
 
-        <h1>
-          KwikRoom
-        </h1>
+        <motion.div
 
-        <input
-          value={username}
-          onChange={(e) =>
-            setUsername(e.target.value)
-          }
-          placeholder="Username"
-          style={{
-            width: "100%",
-            marginBottom: 10
+          initial={{
+            opacity: 0,
+            y: 20
           }}
-        />
 
-        <input
-          value={roomCode}
-          onChange={(e) =>
-            setRoomCode(
-              e.target.value.toUpperCase()
-            )
-          }
-          placeholder="Room Code"
-          style={{
-            width: "100%",
-            marginBottom: 10
+          animate={{
+            opacity: 1,
+            y: 0
           }}
-        />
 
-        <button onClick={joinRoom}>
-          Join Room
-        </button>
+          className="
+            w-full
+            bg-zinc-900/70
+            backdrop-blur-xl
+            border
+            border-zinc-800
+            rounded-3xl
+            p-6
+            shadow-2xl
+          "
+        >
+
+          <div className="mb-6">
+
+            <h1
+              className="
+                text-3xl
+                font-bold
+                tracking-tight
+              "
+            >
+              KwikRoom
+            </h1>
+
+            <p
+              className="
+                text-zinc-400
+                text-sm
+                mt-1
+              "
+            >
+              Realtime rooms
+              for collaboration
+            </p>
+
+          </div>
+
+          <div className="space-y-4">
+
+            <input
+              value={username}
+              onChange={(e) =>
+                setUsername(e.target.value)
+              }
+              placeholder="Username"
+              className="
+                w-full
+                bg-zinc-950
+                border
+                border-zinc-800
+                rounded-xl
+                px-4
+                py-3
+                outline-none
+                focus:border-indigo-500
+                transition
+              "
+            />
+
+            <input
+              value={roomCode}
+              onChange={(e) =>
+                setRoomCode(
+                  e.target.value.toUpperCase()
+                )
+              }
+              placeholder="Room Code"
+              className="
+                w-full
+                bg-zinc-950
+                border
+                border-zinc-800
+                rounded-xl
+                px-4
+                py-3
+                outline-none
+                focus:border-indigo-500
+                transition
+              "
+            />
+
+            <button
+              onClick={joinRoom}
+              className="
+                w-full
+                bg-indigo-600
+                hover:bg-indigo-500
+                rounded-xl
+                py-3
+                font-medium
+                transition-all
+                duration-200
+              "
+            >
+              Join Room
+            </button>
+
+          </div>
+
+        </motion.div>
 
       </div>
 
     )
+
   }
 
+  // CHAT UI
   return (
 
     <div
-      style={{
-        width: 350,
-        padding: 20
-      }}
+      className="
+        h-screen
+        bg-zinc-950
+        text-white
+        flex
+        flex-col
+      "
     >
 
-      <h2>
-        Room {currentRoom}
-      </h2>
-
+      {/* HEADER */}
       <div
-        style={{
-          marginBottom: 10
-        }}
+        className="
+          border-b
+          border-zinc-800
+          p-4
+          flex
+          items-center
+          justify-between
+          bg-zinc-900/70
+          backdrop-blur-lg
+        "
       >
 
-        <h3>
-          Online Users
-        </h3>
+        <div>
 
-        {onlineUsers.map((user, i) => (
+          <h2
+            className="
+              text-lg
+              font-semibold
+            "
+          >
+            Room {currentRoom}
+          </h2>
 
-          <div key={i}>
-            {user}
-          </div>
+          <p
+            className="
+              text-xs
+              text-zinc-400
+            "
+          >
+            Connected as {username}
+          </p>
 
-        ))}
+        </div>
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+            text-green-400
+          "
+        >
+
+          <Wifi size={16} />
+
+          <span className="text-xs">
+            Live
+          </span>
+
+        </div>
 
       </div>
 
+      {/* ONLINE USERS */}
       <div
-        style={{
-          height: 300,
-          overflowY: "auto",
-          border: "1px solid gray",
-          marginBottom: 10,
-          padding: 10
-        }}
+        className="
+          border-b
+          border-zinc-800
+          px-4
+          py-3
+        "
       >
 
-        {messages.map((msg, i) => (
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+            mb-3
+          "
+        >
 
-          <div key={i}>
+          <Users size={16} />
 
-            <b>
-              {msg.username}:
-            </b>
+          <h3
+            className="
+              text-sm
+              font-medium
+            "
+          >
+            Online Users
+          </h3>
 
-            {" "}
-            {msg.text}
+        </div>
 
-          </div>
+        <div
+          className="
+            flex
+            flex-wrap
+            gap-2
+          "
+        >
 
-        ))}
+          {onlineUsers.map((user, i) => (
+
+            <motion.div
+
+              key={i}
+
+              initial={{
+                opacity: 0,
+                scale: 0.8
+              }}
+
+              animate={{
+                opacity: 1,
+                scale: 1
+              }}
+
+              className="
+                flex
+                items-center
+                gap-2
+                bg-zinc-900
+                border
+                border-zinc-800
+                rounded-full
+                px-3
+                py-1
+                text-sm
+              "
+            >
+
+              <div
+                className="
+                  w-2
+                  h-2
+                  rounded-full
+                  bg-green-500
+                "
+              />
+
+              {user}
+
+            </motion.div>
+
+          ))}
+
+        </div>
 
       </div>
 
-      <input
-        value={message}
-        onChange={(e) =>
-          setMessage(e.target.value)
-        }
-        placeholder="Message"
-        style={{
-          width: "100%",
-          marginBottom: 10
-        }}
-      />
+      {/* MESSAGES */}
+      <div
+        className="
+          flex-1
+          overflow-y-auto
+          p-4
+          space-y-3
+        "
+      >
 
-      <button onClick={sendMessage}>
-        Send
-      </button>
+        <AnimatePresence>
+
+          {messages.map((msg, i) => {
+
+            const isOwn =
+              msg.username === username
+
+            return (
+
+              <motion.div
+
+                key={i}
+
+                initial={{
+                  opacity: 0,
+                  y: 10
+                }}
+
+                animate={{
+                  opacity: 1,
+                  y: 0
+                }}
+
+                exit={{
+                  opacity: 0
+                }}
+
+                className={`
+                  flex
+                  ${
+                    isOwn
+                      ? "justify-end"
+                      : "justify-start"
+                  }
+                `}
+              >
+
+                <div
+                  className={`
+                    max-w-[80%]
+                    rounded-2xl
+                    px-4
+                    py-3
+                    shadow-lg
+                    ${
+                      isOwn
+                        ? "bg-indigo-600"
+                        : "bg-zinc-900 border border-zinc-800"
+                    }
+                  `}
+                >
+
+                  <p
+                    className={`
+                      text-xs
+                      mb-1
+                      ${
+                        isOwn
+                          ? "text-indigo-200"
+                          : "text-indigo-400"
+                      }
+                    `}
+                  >
+                    {msg.username}
+                  </p>
+
+                  <p
+                    className="
+                      text-sm
+                      break-words
+                    "
+                  >
+                    {msg.text}
+                  </p>
+
+                </div>
+
+              </motion.div>
+
+            )
+
+          })}
+
+        </AnimatePresence>
+
+        <div ref={messagesEndRef} />
+
+      </div>
+
+      {/* INPUT */}
+      <div
+        className="
+          border-t
+          border-zinc-800
+          p-4
+          bg-zinc-900/70
+          backdrop-blur-lg
+        "
+      >
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+
+          <input
+            value={message}
+            onChange={(e) =>
+              setMessage(e.target.value)
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                sendMessage()
+              }
+            }}
+            placeholder="Type a message..."
+            className="
+              flex-1
+              bg-zinc-950
+              border
+              border-zinc-800
+              rounded-xl
+              px-4
+              py-3
+              outline-none
+              focus:border-indigo-500
+              transition
+            "
+          />
+
+          <button
+            onClick={sendMessage}
+            className="
+              bg-indigo-600
+              hover:bg-indigo-500
+              p-3
+              rounded-xl
+              transition-all
+              duration-200
+            "
+          >
+
+            <Send size={18} />
+
+          </button>
+
+        </div>
+
+      </div>
 
     </div>
 
   )
+
 }
 
 export default Sidepanel

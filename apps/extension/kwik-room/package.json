@@ -10,6 +10,8 @@
     "package": "plasmo package"
   },
   "dependencies": {
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^1.16.0",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
@@ -24,7 +26,7 @@
     "autoprefixer": "^10.5.0",
     "postcss": "^8.5.15",
     "prettier": "3.2.4",
-    "tailwindcss": "^4.3.0",
+    "tailwindcss": "^3.4.19",
     "typescript": "5.3.3"
   },
   "manifest": {
