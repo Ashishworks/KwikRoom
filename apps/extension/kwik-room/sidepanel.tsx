@@ -36,6 +36,7 @@ function Sidepanel() {
       {
         username: string
         text: string
+        timestamp: number
       }[]
     >([])
 
@@ -570,10 +571,9 @@ function Sidepanel() {
 
                   className={`
                     flex
-                    ${
-                      msg.username === "System"
-                        ? "justify-center"
-                        : isOwn
+                    ${msg.username === "System"
+                      ? "justify-center"
+                      : isOwn
                         ? "justify-end"
                         : "justify-start"
                     }
@@ -582,43 +582,34 @@ function Sidepanel() {
 
                   <div
                     className={`
-                      max-w-[80%]
-                      rounded-2xl
-                      px-4
-                      py-3
-                      shadow-lg
-                      ${
-                        msg.username === "System"
-                          ? "bg-zinc-900/60 border border-zinc-800 text-center"
-                          : isOwn
-                          ? "bg-indigo-600"
-                          : "bg-zinc-900 border border-zinc-800"
+    max-w-[75%]
+    rounded-2xl
+    px-3
+    py-2
+    shadow-sm
+    ${msg.username === "System"
+                        ? "bg-zinc-900/60 border border-zinc-800 text-center"
+                        : isOwn
+                          ? "bg-indigo-500 rounded-br-md"
+                          : "bg-zinc-900 border border-zinc-800 rounded-bl-md"
                       }
-                    `}
+  `}
                   >
 
                     {
-                      msg.username ===
-                      "System" ? (
+                      msg.username === "System" ? (
 
                         <p
                           className="
-                            text-xs
-                            text-zinc-400
-                            flex
-                            items-center
-                            gap-1.5
-                          "
+          text-xs
+          text-zinc-400
+          flex
+          items-center
+          gap-1.5
+        "
                         >
 
-                          <span
-                            className="
-                              text-indigo-400
-                              font-medium
-                            "
-                          >
-                            System
-                          </span>
+
 
                           <span>
                             {msg.text}
@@ -632,26 +623,53 @@ function Sidepanel() {
 
                           <p
                             className={`
-                              text-xs
-                              mb-1
-                              ${
-                                isOwn
-                                  ? "text-indigo-200"
-                                  : "text-indigo-400"
+            text-[11px]
+            font-semibold
+            mb-0.5
+            ${isOwn
+                                ? "text-indigo-100"
+                                : "text-orange-400"
                               }
-                            `}
+          `}
                           >
                             {msg.username}
                           </p>
 
-                          <p
-                            className="
-                              text-sm
-                              break-words
-                            "
-                          >
-                            {msg.text}
-                          </p>
+                          <div className="flex flex-col">
+
+                            <p
+                              className="
+      text-[15px]
+      text-white
+      break-words
+      break-all
+      leading-snug
+    "
+                            >
+                              {msg.text}
+                            </p>
+
+                            <span
+                              className={`
+      text-[10px]
+      mt-1
+      self-end
+      ${isOwn
+                                  ? "text-indigo-100/70"
+                                  : "text-zinc-500"
+                                }
+    `}
+                            >
+                              {new Date(
+                                msg.timestamp
+                              ).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false
+                              })}
+                            </span>
+
+                          </div>
 
                         </>
 

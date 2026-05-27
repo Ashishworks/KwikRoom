@@ -1,5 +1,4 @@
-import { Server, Socket }
-from "socket.io"
+import { Server, Socket } from "socket.io"
 
 export function sendMessageEvent(
   io: Server,
@@ -19,7 +18,8 @@ export function sendMessageEvent(
         "message",
         {
           username,
-          text: message
+          text: message,
+          timestamp: Date.now()
         }
       )
 
