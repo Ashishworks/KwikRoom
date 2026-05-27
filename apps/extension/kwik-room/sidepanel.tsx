@@ -231,18 +231,16 @@ function Sidepanel() {
         </div>
       </div>
 
-      {/* SMART MESSAGES TRACK WITH AVATARS */}
+      {/* MESSAGES TRACK */}
       <div className="flex-1 overflow-y-auto p-4 space-y-1">
         <AnimatePresence>
           {messages.map((msg, i) => {
             const isOwn = msg.username === username
             const isSystem = msg.username === "System"
 
-            // Continuity checks for grouping
+            // Check if the previous message was from the same sender
             const prevMsg = messages[i - 1]
-            const nextMsg = messages[i + 1]
             const isSameUserAsPrev = prevMsg && prevMsg.username === msg.username && !isSystem
-            const isSameUserAsNext = nextMsg && nextMsg.username === msg.username && !isSystem
 
             const firstLetter = msg.username.trim().charAt(0).toUpperCase() || "?"
 
@@ -252,19 +250,19 @@ function Sidepanel() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className={`flex items-end gap-2 ${
+                // Note: items-start aligns the avatar dynamically to the top-left of the message layout block
+                className={`flex items-start gap-2 ${
                   isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"
-                } ${!isSameUserAsPrev && i !== 0 ? "pt-3" : ""}`}
+                } ${!isSameUserAsPrev && !isSameUserAsPrev && i !== 0 ? "pt-3" : ""}`}
               >
-                {/* AVATAR FOR OTHERS: Only renders on the last message of their chain */}
+                {/* AVATAR FOR OTHERS: Only renders alongside the FIRST message of a group chain */}
                 {!isOwn && !isSystem && (
-                  <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-                    {!isSameUserAsNext ? (
+                  <div className="w-6 h-6 shrink-0 flex items-center justify-center mt-4">
+                    {!isSameUserAsPrev ? (
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-[11px] font-bold flex items-center justify-center shadow-md border border-zinc-800">
                         {firstLetter}
                       </div>
                     ) : (
-                      // Empty placeholder spacer so bubbles stay perfectly aligned in a row
                       <div className="w-6" />
                     )}
                   </div>
