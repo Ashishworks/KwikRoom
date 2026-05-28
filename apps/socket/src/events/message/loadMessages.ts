@@ -1,8 +1,8 @@
 import { Server, Socket }
-from "socket.io"
+  from "socket.io"
 
 import { prisma }
-from "@kwikroom/db"
+  from "@kwikroom/db"
 
 export function loadMessagesEvent(
   io: Server,
@@ -41,10 +41,25 @@ export function loadMessagesEvent(
           })
 
         const orderedMessages =
-          messages.reverse()
+  messages
+    .reverse()
+    .map((msg) => ({
+
+      id: Number(msg.id),
+
+      username:
+        msg.senderName,
+
+      text:
+        msg.content,
+
+      createdAt:
+        msg.createdAt
+
+    }))
 
         socket.emit(
-          "older-messages",
+          "older-messages-loaded",
           {
             messages:
               orderedMessages,

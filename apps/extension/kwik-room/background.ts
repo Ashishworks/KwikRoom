@@ -66,6 +66,21 @@ socket.on(
 
   }
 )
+socket.on(
+  "older-messages-loaded",
+
+  (data) => {
+
+    chrome.runtime.sendMessage({
+
+      type: "older-messages-loaded",
+
+      payload: data
+
+    })
+
+  }
+)
 
 // ROOM JOINED
 
@@ -225,19 +240,6 @@ chrome.runtime.onMessage.addListener(
 
     }
 
-    // LOAD OLDER MESSAGES
-
-    if (
-      message.type ===
-      "load-more-messages"
-    ) {
-
-      socket.emit(
-        "load-more-messages",
-        message.payload
-      )
-
-    }
     if (
       message.type ===
       "leave-room"
@@ -245,6 +247,14 @@ chrome.runtime.onMessage.addListener(
 
       socket.emit(
         "leave-room"
+      )
+
+    }
+    if (message.type === "load-more-messages") {
+
+      socket.emit(
+        "load-more-messages",
+        message.payload
       )
 
     }

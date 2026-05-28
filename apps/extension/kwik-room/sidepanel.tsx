@@ -34,13 +34,117 @@ export default function SidePanel() {
     useState(false)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
-
-  // AUTO SCROLL
+  const shouldAutoScrollRef =
+    useRef<boolean>(true)
   useEffect(() => {
+
+    const container =
+      messagesContainerRef.current
+
+    if (!container) return
+
+    // RESTORE POSITION AFTER PAGINATION
+
+    if (!shouldAutoScrollRef.current) {
+
+      const newHeight =
+        container.scrollHeight
+
+      container.scrollTop +=
+        newHeight -
+        previousScrollHeightRef.current
+
+      shouldAutoScrollRef.current =
+        true
+
+      return
+
+    }
+
+    // NORMAL AUTO SCROLL
+
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth"
     })
-  }, [messages.length])
+
+  }, [messages])
+  const previousScrollHeightRef =
+    useRef<number>(0)
+  useEffect(() => {
+
+    const container =
+      messagesContainerRef.current
+
+    if (!container) return
+
+    const handleScroll = () => {
+      console.log(
+        "SCROLL:",
+        container.scrollTop
+      )
+      console.log({
+        scrollTop: container.scrollTop,
+        hasMore,
+        loadingMore,
+        messagesLength: messages.length
+      })
+      if (
+        container.scrollTop < 100 &&
+        hasMore &&
+        !loadingMore &&
+        messages.length > 0
+      ) {
+        console.log(
+          "TOP REACHED -> LOADING MORE"
+        )
+        previousScrollHeightRef.current =
+          container.scrollHeight
+
+        shouldAutoScrollRef.current =
+          false
+
+        setLoadingMore(true)
+
+        chrome.runtime.sendMessage({
+
+          type: "load-more-messages",
+
+          payload: {
+
+            room: roomCode,
+
+            cursor:
+              messages[0].id
+
+          }
+
+        })
+
+      }
+
+    }
+
+    container.addEventListener(
+      "scroll",
+      handleScroll
+    )
+
+    return () => {
+
+      container.removeEventListener(
+        "scroll",
+        handleScroll
+      )
+
+    }
+
+  }, [
+    messages,
+    hasMore,
+    loadingMore,
+    roomCode
+  ])
+
 
   // APPEND MESSAGE SAFELY
   const appendMessage = (incomingMessage: Message) => {
@@ -240,36 +344,12 @@ export default function SidePanel() {
       if (message.type === "online-users") {
         setOnlineUsers(message.payload)
       }
-      if (
-        message.type ===
-        "older-messages"
-      ) {
+      if (message.type === "older-messages-loaded") {
 
-        const container =
-          messagesContainerRef.current
-
-        if (!container) return
-
-        const previousHeight =
-          container.scrollHeight
-
-        setMessages((prev) => [
-
+        setMessages(prev => [
           ...message.payload.messages,
-
           ...prev
-
         ])
-
-        requestAnimationFrame(() => {
-
-          const newHeight =
-            container.scrollHeight
-
-          container.scrollTop +=
-            newHeight - previousHeight
-
-        })
 
         setHasMore(
           message.payload.hasMore
