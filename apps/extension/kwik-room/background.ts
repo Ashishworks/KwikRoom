@@ -12,6 +12,8 @@ const socket = io(
   }
 )
 
+// OPEN SIDE PANEL
+
 chrome.sidePanel
   .setPanelBehavior({
     openPanelOnActionClick: true
@@ -19,20 +21,22 @@ chrome.sidePanel
   .catch(console.error)
 
 // SOCKET CONNECTED
+
 socket.on(
   "connect",
 
   () => {
 
     console.log(
-      "Background socket connected:",
+      "Socket connected:",
       socket.id
     )
 
   }
 )
 
-// DEBUG ALL EVENTS
+// DEBUG EVENTS
+
 socket.onAny(
   (event, ...args) => {
 
@@ -45,7 +49,8 @@ socket.onAny(
   }
 )
 
-// RECEIVE MESSAGES
+// MESSAGE EVENT
+
 socket.on(
   "message",
 
@@ -53,7 +58,7 @@ socket.on(
 
     chrome.runtime.sendMessage({
 
-      type: "new-message",
+      type: "message",
 
       payload: msg
 
@@ -62,7 +67,26 @@ socket.on(
   }
 )
 
-// RECEIVE ONLINE USERS
+// ROOM JOINED
+
+socket.on(
+  "room-joined",
+
+  (data) => {
+
+    chrome.runtime.sendMessage({
+
+      type: "room-joined",
+
+      payload: data
+
+    })
+
+  }
+)
+
+// ONLINE USERS
+
 socket.on(
   "online-users",
 
@@ -80,15 +104,11 @@ socket.on(
 )
 
 // ROOM CREATED
+
 socket.on(
   "room-created",
 
   (room) => {
-
-    console.log(
-      "ROOM CREATED:",
-      room
-    )
 
     chrome.runtime.sendMessage({
 
@@ -102,15 +122,11 @@ socket.on(
 )
 
 // SOCKET ERROR
+
 socket.on(
   "error",
 
   (error) => {
-
-    console.log(
-      "SOCKET ERROR:",
-      error
-    )
 
     chrome.runtime.sendMessage({
 
@@ -123,7 +139,8 @@ socket.on(
   }
 )
 
-// LISTEN FROM SIDEPANEL
+// RECEIVE FROM SIDEPANEL
+
 chrome.runtime.onMessage.addListener(
 
   (
@@ -138,6 +155,7 @@ chrome.runtime.onMessage.addListener(
     )
 
     // CREATE ROOM
+
     if (
       message.type ===
       "create-room"
@@ -145,15 +163,13 @@ chrome.runtime.onMessage.addListener(
 
       socket.emit(
         "create-room",
-        {
-          username:
-            message.payload.username
-        }
+        message.payload
       )
 
     }
 
     // JOIN ROOM
+
     if (
       message.type ===
       "join-room"
@@ -167,14 +183,39 @@ chrome.runtime.onMessage.addListener(
     }
 
     // SEND MESSAGE
+
     if (
       message.type ===
-      "send-message"
+      "message"
     ) {
 
       socket.emit(
         "message",
         message.payload
+      )
+
+    }
+
+    // LOAD OLDER MESSAGES
+
+    if (
+      message.type ===
+      "load-more-messages"
+    ) {
+
+      socket.emit(
+        "load-more-messages",
+        message.payload
+      )
+
+    }
+    if (
+      message.type ===
+      "leave-room"
+    ) {
+
+      socket.emit(
+        "leave-room"
       )
 
     }

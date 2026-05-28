@@ -1,56 +1,69 @@
+
 import "./style.css"
+"use client"
+
 import { Send, Users, LogOut } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useEffect, useRef, useState } from "react"
 
-function Sidepanel() {
+type Message = {
+  id: number
+  username: string
+  text: string
+  createdAt: string
+}
+
+export default function SidePanel() {
   const [username, setUsername] = useState("")
   const [roomCode, setRoomCode] = useState("")
-  const [currentRoom, setCurrentRoom] = useState("")
   const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<
-    {
-      username: string
-      text: string
-      timestamp: number
-    }[]
-  >([])
+  const [joined, setJoined] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
 
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
 
+  // AUTO SCROLL
   useEffect(() => {
-    const savedUsername = localStorage.getItem("username")
-    if (savedUsername) {
-      setUsername(savedUsername)
-    }
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth"
+    })
+  }, [messages.length])
 
+  // APPEND MESSAGE SAFELY
+  const appendMessage = (incomingMessage: Message) => {
+    setMessages((prev) => {
+      const exists = prev.some((msg) => msg.id === incomingMessage.id)
+      if (exists) return prev
+      return [...prev, incomingMessage]
+    })
+  }
+
+  // EXTENSION MESSAGE LISTENER
+  useEffect(() => {
     const listener = (message: any) => {
-      console.log("SIDEPANEL RECEIVED:", message)
+      // ROOM CREATED
+      if (message.type === "room-created") {
+        setRoomCode(message.payload.code)
+      }
 
-      // NEW MESSAGE
-      if (message.type === "new-message") {
-        setMessages((prev) => [...prev, message.payload])
+      // ROOM JOINED
+      if (message.type === "room-joined") {
+        setJoined(true)
+        setMessages(message.payload.messages)
+      }
+
+      // REALTIME MESSAGE
+      if (message.type === "message") {
+        appendMessage(message.payload)
       }
 
       // ONLINE USERS
       if (message.type === "online-users") {
         setOnlineUsers(message.payload)
-      }
-
-      // ROOM CREATED
-      if (message.type === "room-created") {
-        const createdRoomCode = message.payload.code
-        setCurrentRoom(createdRoomCode)
-        setRoomCode(createdRoomCode)
-
-        chrome.runtime.sendMessage({
-          type: "join-room",
-          payload: {
-            room: createdRoomCode,
-            username: localStorage.getItem("username"),
-          },
-        })
       }
     }
 
@@ -61,72 +74,59 @@ function Sidepanel() {
     }
   }, [])
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
   // CREATE ROOM
-  const createRoom = () => {
-    if (!username.trim()) return
-
-    localStorage.setItem("username", username)
+  const createRoom = async () => {
+    if (!username) return
 
     chrome.runtime.sendMessage({
       type: "create-room",
-      payload: { username },
+      payload: {
+        username,
+        isPersistent: false
+      }
     })
   }
 
   // JOIN ROOM
-  const joinRoom = () => {
-    if (!roomCode.trim() || !username.trim()) return
-
-    localStorage.setItem("username", username)
+  const joinRoom = async () => {
+    if (!roomCode || !username) return
 
     chrome.runtime.sendMessage({
       type: "join-room",
       payload: {
         room: roomCode,
-        username,
-      },
+        username
+      }
     })
 
-    setCurrentRoom(roomCode)
-  }
-
-  // LEAVE ROOM
-  const leaveRoom = () => {
-    chrome.runtime.sendMessage({
-      type: "leave-room",
-      payload: {
-        room: currentRoom,
-        username,
-      },
-    })
     
-    setCurrentRoom("")
-    setMessages([])
-    setOnlineUsers([])
   }
 
   // SEND MESSAGE
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!message.trim()) return
 
     chrome.runtime.sendMessage({
-      type: "send-message",
+      type: "message",
       payload: {
-        room: currentRoom,
+        room: roomCode,
         username,
-        message,
-      },
+        message
+      }
     })
 
     setMessage("")
   }
 
-  // JOIN SCREEN
-  if (!currentRoom) {
+  // CUSTOM HANDLER FOR LEAVING TO ALIGN WITH THE UI LOGIC EXITS
+  const leaveRoom = () => {
+    setJoined(false)
+    setMessages([])
+    setOnlineUsers([])
+  }
+
+  // JOIN SCREEN UI
+  if (!joined) {
     return (
       <div className="h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
         <motion.div
@@ -165,7 +165,7 @@ function Sidepanel() {
               onClick={createRoom}
               className="w-full bg-zinc-800 hover:bg-zinc-700 rounded-xl py-3 font-medium transition-all"
             >
-              Create Room
+              Create Temporary Room
             </button>
           </div>
         </motion.div>
@@ -173,13 +173,13 @@ function Sidepanel() {
     )
   }
 
-  // CHAT SCREEN
+  // CHAT SCREEN UI
   return (
     <div className="h-screen bg-zinc-950 text-white flex flex-col">
       {/* HEADER */}
       <div className="border-b border-zinc-800/80 p-4 flex items-center justify-between bg-zinc-900/40 backdrop-blur-lg">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Room {currentRoom}</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Room {roomCode}</h2>
           <p className="text-xs text-zinc-400">Connected as {username}</p>
         </div>
 
@@ -232,7 +232,10 @@ function Sidepanel() {
       </div>
 
       {/* MESSAGES TRACK */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-1"
+      >
         <AnimatePresence>
           {messages.map((msg, i) => {
             const isOwn = msg.username === username
@@ -246,16 +249,15 @@ function Sidepanel() {
 
             return (
               <motion.div
-                key={i}
+                key={msg.id || i}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                // Note: items-start aligns the avatar dynamically to the top-left of the message layout block
                 className={`flex items-start gap-2 ${
                   isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"
-                } ${!isSameUserAsPrev && !isSameUserAsPrev && i !== 0 ? "pt-3" : ""}`}
+                } ${!isSameUserAsPrev && i !== 0 ? "pt-3" : ""}`}
               >
-                {/* AVATAR FOR OTHERS: Only renders alongside the FIRST message of a group chain */}
+                {/* AVATAR FOR OTHERS */}
                 {!isOwn && !isSystem && (
                   <div className="w-6 h-6 shrink-0 flex items-center justify-center mt-4">
                     {!isSameUserAsPrev ? (
@@ -279,7 +281,7 @@ function Sidepanel() {
                   /* User Message Bubble Container */
                   <div className="flex flex-col max-w-[80%] min-w-[75px]">
                     
-                    {/* Username Header: Only shows on the very first message of a chain */}
+                    {/* Username Header */}
                     {!isSameUserAsPrev && (
                       <div className={`flex items-center mb-1 px-1.5 ${isOwn ? "justify-end" : "justify-start"}`}>
                         <span className={`text-[11px] font-bold tracking-tight ${isOwn ? "text-zinc-400" : "text-indigo-400"}`}>
@@ -313,7 +315,7 @@ function Sidepanel() {
                             isOwn ? "text-indigo-200/60" : "text-zinc-500"
                           }`}
                         >
-                          {new Date(msg.timestamp).toLocaleTimeString([], {
+                          {new Date(msg.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                             hour12: false,
@@ -358,5 +360,3 @@ function Sidepanel() {
     </div>
   )
 }
-
-export default Sidepanel

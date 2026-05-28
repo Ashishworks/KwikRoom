@@ -8,17 +8,11 @@ import { Server }
 
 import cors from "cors"
 
-import { createRoomEvent }
-  from "./events/room/createRoom.js"
+import { registerRoomEvents }
+  from "./events/room"
 
-import { joinRoomEvent }
-  from "./events/room/joinRoom.js"
-
-import { leaveRoomEvent }
-  from "./events/room/leaveRoom.js"
-
-import { sendMessageEvent }
-  from "./events/message/sendMessage.js"
+import { registerMessageEvents }
+  from "./events/message"
 
 const app = express()
 
@@ -29,7 +23,7 @@ app.use(express.json())
 const httpServer =
   createServer(app)
 
-const io = new Server(
+export const io = new Server(
   httpServer,
   {
     cors: {
@@ -49,28 +43,27 @@ io.on(
       socket.id
     )
 
-    // CREATE ROOM
-    createRoomEvent(
+    registerRoomEvents(
       io,
       socket
     )
 
-    // JOIN ROOM
-    joinRoomEvent(
+    registerMessageEvents(
       io,
       socket
     )
 
-    // SEND MESSAGE
-    sendMessageEvent(
-      io,
-      socket
-    )
+    socket.on(
+      "disconnect",
 
-    // LEAVE ROOM
-    leaveRoomEvent(
-      io,
-      socket
+      () => {
+
+        console.log(
+          "User disconnected:",
+          socket.id
+        )
+
+      }
     )
 
   }

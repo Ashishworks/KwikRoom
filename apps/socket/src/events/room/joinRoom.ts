@@ -1,8 +1,12 @@
-import { Server, Socket }
-from "socket.io"
+import { Server, Socket } from "socket.io"
 
-import { roomUsers }
-from "../../state/roomUsers.js"
+import bcrypt from "bcrypt"
+
+import { prisma } from "@kwikroom/db"
+
+import { redis } from "@kwikroom/redis"
+
+import { roomUsers } from "../../state/roomUsers.js"
 
 export function joinRoomEvent(
   io: Server,
@@ -12,52 +16,172 @@ export function joinRoomEvent(
   socket.on(
     "join-room",
 
-    ({
+    async ({
       room,
-      username
+      username,
+      password
     }) => {
 
-      socket.join(room)
+      try {
 
-      socket.data.room =
-        room
+        // CHECK TEMP ROOM
 
-      socket.data.username =
-        username
+        const tempRoom =
+          await redis.get(
+            `room:${room}`
+          )
 
-      const users =
-        roomUsers.get(room) || []
+        // CHECK PERSISTENT ROOM
 
-      if (
-        !users.includes(username)
-      ) {
+        const persistentRoom =
+          await prisma.room.findUnique({
+            where: {
+              code: room
+            }
+          })
 
-        users.push(username)
+        // ROOM DOES NOT EXIST
+
+        if (
+          tempRoom === null &&
+          !persistentRoom
+        ) {
+
+          socket.emit(
+            "error",
+            "Room does not exist"
+          )
+
+          return
+
+        }
+
+        // PASSWORD CHECK
+
+        if (
+          persistentRoom?.password
+        ) {
+
+          const validPassword =
+            await bcrypt.compare(
+              password,
+              persistentRoom.password
+            )
+
+          if (!validPassword) {
+
+            socket.emit(
+              "error",
+              "Invalid password"
+            )
+
+            return
+
+          }
+
+        }
+
+        // JOIN SOCKET ROOM
+
+        socket.join(room)
+
+        socket.data.room =
+          room
+
+        socket.data.username =
+          username
+
+        // ONLINE USERS
+
+        const users =
+          roomUsers.get(room) || []
+
+        if (
+          !users.includes(username)
+        ) {
+
+          users.push(username)
+
+        }
+
+        roomUsers.set(
+          room,
+          users
+        )
+
+        // LOAD LATEST 15 MESSAGES
+
+        const messages =
+          await prisma.message.findMany({
+
+            where: {
+              roomCode: room
+            },
+
+            orderBy: {
+              id: "desc"
+            },
+
+            take: 15
+
+          })
+
+        // REVERSE FOR CHAT ORDER
+
+        const orderedMessages =
+          messages.reverse()
+
+        // SEND INITIAL ROOM DATA
+
+        socket.emit(
+          "room-joined",
+          {
+            room,
+            messages:
+              orderedMessages
+          }
+        )
+
+        // ONLINE USERS
+
+        io.to(room).emit(
+          "online-users",
+          users
+        )
+
+        // SYSTEM MESSAGE
+
+        io.to(room).emit(
+          "message",
+          {
+            id:
+              Date.now(),
+
+            username:
+              "System",
+
+            text:
+              `${username} joined`,
+
+            createdAt:
+              new Date()
+          }
+        )
+
+        console.log(
+          `${username} joined ${room}`
+        )
+
+      } catch (error) {
+
+        console.log(error)
+
+        socket.emit(
+          "error",
+          "Failed to join room"
+        )
 
       }
-
-      roomUsers.set(
-        room,
-        users
-      )
-
-      io.to(room).emit(
-        "online-users",
-        users
-      )
-
-      io.to(room).emit(
-        "message",
-        {
-          username: "System",
-          text:
-            `${username} joined`
-        }
-      )
-
-      console.log(
-        `${username} joined ${room}`
-      )
 
     }
   )

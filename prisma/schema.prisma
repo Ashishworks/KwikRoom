@@ -9,14 +9,38 @@ datasource db {
 
 model Room {
 
-  id           String   @id @default(cuid())
+  id             String    @id @default(cuid())
 
-  code         String   @unique
+  code           String    @unique
 
-  adminId      String
+  adminId        String
 
-  isPersistent Boolean  @default(false)
+  isPersistent   Boolean   @default(false)
 
-  createdAt    DateTime @default(now())
+  password       String?
 
+  expiresAt      DateTime?
+
+  createdAt      DateTime  @default(now())
+
+  messages       Message[]
+}
+
+model Message {
+
+  id             BigInt    @id @default(autoincrement())
+
+  roomCode       String
+
+  senderId       String
+
+  senderName     String
+
+  content        String
+
+  createdAt      DateTime  @default(now())
+
+  room Room @relation(fields: [roomCode], references: [code], onDelete: Cascade)
+
+  @@index([roomCode, id])
 }
