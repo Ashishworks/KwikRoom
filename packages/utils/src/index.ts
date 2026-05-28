@@ -1,21 +1,3 @@
-export function generateRoomCode() {
+export * from "./generateRoomCode.js"
 
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-  let code = ""
-
-  for (let i = 0; i < 5; i++) {
-
-    code += chars[
-      Math.floor(
-        Math.random() *
-        chars.length
-      )
-    ]
-
-  }
-
-  return code
-
-}
+export * from "./serializeMessage.js"

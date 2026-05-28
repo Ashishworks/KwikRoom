@@ -1,7 +1,10 @@
 import { Server, Socket } from "socket.io"
 
 import bcrypt from "bcrypt"
-
+import {
+  serializeMessage
+}
+  from "@kwikroom/utils"
 import { prisma } from "@kwikroom/db"
 
 import { redis } from "@kwikroom/redis"
@@ -128,9 +131,12 @@ export function joinRoomEvent(
 
         // DEFAULT EMPTY HISTORY
 
-        let orderedMessages = [] as Awaited<
-  ReturnType<typeof prisma.message.findMany>
->
+        let orderedMessages: {
+  id: string
+  username: string
+  text: string
+  createdAt: Date
+}[] = []
 
         // ONLY PERSISTENT ROOMS
         // HAVE SAVED HISTORY
@@ -153,7 +159,9 @@ export function joinRoomEvent(
             })
 
           orderedMessages =
-            messages.reverse()
+            messages
+              .reverse()
+              .map(serializeMessage)
 
         }
 
