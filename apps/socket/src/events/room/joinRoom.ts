@@ -132,11 +132,11 @@ export function joinRoomEvent(
         // DEFAULT EMPTY HISTORY
 
         let orderedMessages: {
-  id: string
-  username: string
-  text: string
-  createdAt: Date
-}[] = []
+          id: string
+          username: string
+          text: string
+          createdAt: Date
+        }[] = []
 
         // ONLY PERSISTENT ROOMS
         // HAVE SAVED HISTORY

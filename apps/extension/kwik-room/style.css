@@ -10,12 +10,13 @@ body {
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-color: #3f3f46 transparent;
 }
 
-/* Chrome / Edge */
+/* Chrome / Edge / Safari */
 *::-webkit-scrollbar {
   width: 6px;
+  height: 6px; /* Added for horizontal track views if needed */
 }
 
 *::-webkit-scrollbar-track {
@@ -23,17 +24,17 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: #27272a; /* Custom base dark tone matching zinc-800 */
   border-radius: 999px;
+  border: 1px solid transparent; /* Creates clean breathing room */
 }
 
-/* ONLY SHOW WHILE ACTIVE SCROLLING */
-*:active::-webkit-scrollbar-thumb,
-*:focus::-webkit-scrollbar-thumb,
-*:hover::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+/* HIGHLIGHT ON HOVER / ACTIVE STATES */
+*:hover::-webkit-scrollbar-thumb,
+*:focus-within::-webkit-scrollbar-thumb {
+  background: #3f3f46; /* Shifting to zinc-700 on container interactions */
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: #52525b; /* Brightest accent directly over the thumb track */
 }
