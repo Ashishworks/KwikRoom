@@ -14,6 +14,9 @@ import { registerRoomEvents }
 import { registerMessageEvents }
   from "./events/message"
 
+import { checkRoomEvent }
+  from "./events/room/checkRoom.js"
+
 const app = express()
 
 app.use(cors())
@@ -49,6 +52,11 @@ io.on(
     )
 
     registerMessageEvents(
+      io,
+      socket
+    )
+
+    checkRoomEvent(
       io,
       socket
     )

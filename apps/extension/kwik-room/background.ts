@@ -84,6 +84,21 @@ socket.on(
 
   }
 )
+socket.on(
+  "room-check-result",
+
+  (data) => {
+
+    chrome.runtime.sendMessage({
+
+      type: "room-check-result",
+
+      payload: data
+
+    })
+
+  }
+)
 
 // ONLINE USERS
 
@@ -139,6 +154,7 @@ socket.on(
   }
 )
 
+
 // RECEIVE FROM SIDEPANEL
 
 chrome.runtime.onMessage.addListener(
@@ -168,6 +184,19 @@ chrome.runtime.onMessage.addListener(
 
     }
 
+    // check rooom 
+
+    if (
+      message.type ===
+      "check-room"
+    ) {
+
+      socket.emit(
+        "check-room",
+        message.payload
+      )
+
+    }
     // JOIN ROOM
 
     if (
@@ -219,6 +248,7 @@ chrome.runtime.onMessage.addListener(
       )
 
     }
+
 
     return true
 

@@ -6,7 +6,8 @@ import { prisma } from "@kwikroom/db"
 
 import { redis } from "@kwikroom/redis"
 
-import { roomUsers } from "../../state/roomUsers.js"
+import { roomUsers }
+  from "../../state/roomUsers.js"
 
 export function joinRoomEvent(
   io: Server,
@@ -35,9 +36,11 @@ export function joinRoomEvent(
 
         const persistentRoom =
           await prisma.room.findUnique({
+
             where: {
               code: room
             }
+
           })
 
         // ROOM DOES NOT EXIST
@@ -61,6 +64,17 @@ export function joinRoomEvent(
         if (
           persistentRoom?.password
         ) {
+
+          if (!password) {
+
+            socket.emit(
+              "error",
+              "Password required"
+            )
+
+            return
+
+          }
 
           const validPassword =
             await bcrypt.compare(
@@ -91,6 +105,9 @@ export function joinRoomEvent(
         socket.data.username =
           username
 
+        socket.data.isPersistent =
+          !!persistentRoom
+
         // ONLINE USERS
 
         const users =
@@ -109,27 +126,36 @@ export function joinRoomEvent(
           users
         )
 
-        // LOAD LATEST 15 MESSAGES
+        // DEFAULT EMPTY HISTORY
 
-        const messages =
-          await prisma.message.findMany({
+        let orderedMessages = [] as Awaited<
+  ReturnType<typeof prisma.message.findMany>
+>
 
-            where: {
-              roomCode: room
-            },
+        // ONLY PERSISTENT ROOMS
+        // HAVE SAVED HISTORY
 
-            orderBy: {
-              id: "desc"
-            },
+        if (persistentRoom) {
 
-            take: 15
+          const messages =
+            await prisma.message.findMany({
 
-          })
+              where: {
+                roomCode: room
+              },
 
-        // REVERSE FOR CHAT ORDER
+              orderBy: {
+                id: "desc"
+              },
 
-        const orderedMessages =
-          messages.reverse()
+              take: 15
+
+            })
+
+          orderedMessages =
+            messages.reverse()
+
+        }
 
         // SEND INITIAL ROOM DATA
 
