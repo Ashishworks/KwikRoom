@@ -1,30 +1,21 @@
 import express from "express"
-
-import { createServer }
-  from "http"
-
-import { Server }
-  from "socket.io"
-
+import { createServer } from "http"
+import { Server } from "socket.io"
 import cors from "cors"
 
-import { registerRoomEvents }
-  from "./events/room"
+import { registerRoomEvents } from "./events/room"
+import { registerMessageEvents } from "./events/message"
+import { checkRoomEvent } from "./events/room/checkRoom.js"
 
-import { registerMessageEvents }
-  from "./events/message"
-
-import { checkRoomEvent }
-  from "./events/room/checkRoom.js"
+// 👉 NEW: Import the Arena game events
+import { gameEvents } from "./events/game" 
 
 const app = express()
 
 app.use(cors())
-
 app.use(express.json())
 
-const httpServer =
-  createServer(app)
+const httpServer = createServer(app)
 
 export const io = new Server(
   httpServer,
@@ -38,53 +29,29 @@ export const io = new Server(
 
 io.on(
   "connection",
-
   (socket) => {
+    console.log("User connected:", socket.id)
 
-    console.log(
-      "User connected:",
-      socket.id
-    )
+    // Existing event registrations
+    registerRoomEvents(io, socket)
+    registerMessageEvents(io, socket)
+    checkRoomEvent(io, socket)
 
-    registerRoomEvents(
-      io,
-      socket
-    )
-
-    registerMessageEvents(
-      io,
-      socket
-    )
-
-    checkRoomEvent(
-      io,
-      socket
-    )
+    // 👉 NEW: Register the Arena events for Tic-Tac-Toe
+    gameEvents(io, socket)
 
     socket.on(
       "disconnect",
-
       () => {
-
-        console.log(
-          "User disconnected:",
-          socket.id
-        )
-
+        console.log("User disconnected:", socket.id)
       }
     )
-
   }
 )
 
 httpServer.listen(
   4000,
-
   () => {
-
-    console.log(
-      "Socket server running on port 4000"
-    )
-
+    console.log("Socket server running on port 4000")
   }
 )

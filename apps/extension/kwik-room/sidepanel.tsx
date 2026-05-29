@@ -2,11 +2,12 @@ import "./style.css"
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Volume2, VolumeX } from "lucide-react" // 👉 NEW: Icons
-import { playSound } from "./components/sound" // 👉 NEW: Sound utility
+import { Volume2, VolumeX } from "lucide-react"
+import { playSound } from "./components/sound"
 import { Message } from "./types"
 import { Lobby } from "./components/Lobby"
 import { ChatRoom } from "./components/ChatRoom"
+import { TicTacToeArena } from "./games/TicTacToeArena"
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
@@ -28,9 +29,9 @@ export default function SidePanel() {
   const [showScrollButton, setShowScrollButton] = useState(false)
 
   const [lastRoomCode, setLastRoomCode] = useState("")
-  
-  // 👉 NEW STATE: Global Mute Status
   const [isMuted, setIsMuted] = useState(false)
+
+  const [activeGame, setActiveGame] = useState<{ id: string, opponent: string, isX: boolean, type: string } | null>(null)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -40,7 +41,6 @@ export default function SidePanel() {
   const previousScrollTopRef = useRef<number>(0)
   const canPaginateRef = useRef<boolean>(false)
 
-  // 👉 UPDATED EFFECT: Check for saved code AND mute status on mount
   useEffect(() => {
     const savedRoom = localStorage.getItem("kwik_last_room")
     if (savedRoom) setLastRoomCode(savedRoom)
@@ -103,20 +103,17 @@ export default function SidePanel() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-   
   }
 
   const roomCodeRef = useRef(roomCode)
   const usernameRef = useRef(username)
   const roomPasswordRef = useRef(roomPassword)
-  
-  // 👉 NEW REF: We need this so the socket listener always knows the current mute status!
   const isMutedRef = useRef(isMuted)
 
   useEffect(() => { usernameRef.current = username }, [username])
   useEffect(() => { roomCodeRef.current = roomCode }, [roomCode])
   useEffect(() => { roomPasswordRef.current = roomPassword }, [roomPassword])
-  useEffect(() => { isMutedRef.current = isMuted }, [isMuted]) // Sync mute status
+  useEffect(() => { isMutedRef.current = isMuted }, [isMuted])
 
   useEffect(() => {
     const listener = (message: any) => {
@@ -166,8 +163,7 @@ export default function SidePanel() {
 
         localStorage.setItem("kwik_last_room", roomCodeRef.current)
         setLastRoomCode(roomCodeRef.current)
-        
-        // 👉 PLAY SUCCESS SOUND
+
         playSound("success", isMutedRef.current)
       }
 
@@ -178,19 +174,57 @@ export default function SidePanel() {
 
       if (message.type === "message") {
         appendMessage(message.payload)
-        
-        // 👉 PLAY RECEIVE SOUND (Only if it's not our own message and not a system message)
+
         if (message.payload.username !== usernameRef.current && message.payload.username !== "System") {
           playSound("receive", isMutedRef.current)
         }
       }
 
       if (message.type === "online-users") setOnlineUsers(message.payload)
-      
+
       if (message.type === "older-messages-loaded") {
         setMessages(prev => [...message.payload.messages, ...prev])
         setHasMore(message.payload.hasMore)
         setLoadingMore(false)
+      }
+
+      // ==========================================
+      // 👉 FIX: BULLETPROOF ARENA ROUTING
+      // ==========================================
+      // ==========================================
+      // ARENA ROUTING & EXPIRATION LOGIC
+      // ==========================================
+      if (message.type === "game-updated") {
+        const { action, gameInstanceId, playersJoined, gameType } = message.payload;
+
+        // 👉 FIX: Instantly expire the invite for everyone if the game starts or someone leaves
+        if (action === "start" || action === "leave") {
+          setMessages((prev) => prev.map((msg) => {
+            if (msg.type === "game_invite" && msg.metadata?.gameInstanceId === gameInstanceId) {
+              return {
+                ...msg,
+                metadata: { ...msg.metadata, expired: true }
+              }
+            }
+            return msg
+          }))
+        }
+
+        // Listen explicitly for the "start" action to pull the creator in
+        if (action === "start" && playersJoined?.length === 2) {
+
+          if (playersJoined.includes(usernameRef.current)) {
+            const opponent = playersJoined.find((p: string) => p !== usernameRef.current) || "Opponent";
+            const isCreator = playersJoined[0] === usernameRef.current;
+
+            setActiveGame({
+              id: gameInstanceId,
+              type: gameType || "tic_tac_toe",
+              opponent,
+              isX: isCreator
+            });
+          }
+        }
       }
     }
 
@@ -227,8 +261,6 @@ export default function SidePanel() {
     })
     setMessage("")
     scrollToBottom()
-    
-    // 👉 PLAY SEND SOUND
     playSound("send", isMuted)
   }
 
@@ -242,13 +274,13 @@ export default function SidePanel() {
     setRoomExists(true)
     setHasMore(true)
     setLoadingMore(false)
+    setActiveGame(null)
     canPaginateRef.current = false
     setShowScrollButton(false)
   }
 
   return (
     <>
-      {/* 👉 NEW: Floating Global Mute Button */}
       <div className="fixed top-20 right-4 -translate-x-1/2 z-50">
         <button
           onClick={() => {
@@ -265,7 +297,7 @@ export default function SidePanel() {
 
       {!joined ? (
         <Lobby
-          isMuted={isMuted} // 👉 PASSING MUTE STATE TO LOBBY
+          isMuted={isMuted}
           lastRoomCode={lastRoomCode}
           activeTab={activeTab} setActiveTab={setActiveTab}
           isPersistent={isPersistent} setIsPersistent={setIsPersistent}
@@ -277,9 +309,17 @@ export default function SidePanel() {
           requiresPassword={requiresPassword} incorrectPassword={incorrectPassword}
           joinRoom={joinRoom} createRoom={createRoom}
         />
+      ) : activeGame ? (
+        <TicTacToeArena
+          isMuted={isMuted}
+          roomCode={roomCode}
+          username={username}
+          activeGame={activeGame}
+          setActiveGame={setActiveGame}
+        />
       ) : (
         <ChatRoom
-          isMuted={isMuted} 
+          isMuted={isMuted}
           roomCode={roomCode} username={username} leaveRoom={leaveRoom}
           onlineUsers={onlineUsers} messages={messages}
           messagesContainerRef={messagesContainerRef} messagesEndRef={messagesEndRef}

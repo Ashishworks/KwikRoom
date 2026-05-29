@@ -1,4 +1,4 @@
-import { LogOut, Users, ChevronDown, Send, Copy, Check } from "lucide-react"
+import { LogOut, Users, ChevronDown, Send, Copy, Check, Gamepad2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { RefObject, useState } from "react"
 import { Message } from "../types"
@@ -29,6 +29,9 @@ export function ChatRoom({
 }: ChatRoomProps) {
   
   const [copied, setCopied] = useState(false)
+  
+  // 👉 NEW: State to toggle the Arena games menu
+  const [showArenaMenu, setShowArenaMenu] = useState(false)
 
   const copyRoomCode = async () => {
     try {
@@ -38,6 +41,31 @@ export function ChatRoom({
     } catch (err) {
       console.error("Failed to copy room code")
     }
+  }
+
+  // 👉 NEW: Function to dispatch the game invite message
+  const sendGameInvite = (gameType: "tic_tac_toe") => {
+    const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    
+    chrome.runtime.sendMessage({
+      type: "message",
+      payload: { 
+        room: roomCode, 
+        username, 
+        message: "Arena Challenge", // Fallback text for the database/logs
+        type: "game_invite",
+        metadata: {
+          gameType,
+          gameInstanceId: gameId,
+          playersJoined: [username],
+          maxPlayers: 2
+        }
+      }
+    })
+    
+    setShowArenaMenu(false)
+    scrollToBottom()
+    playSound("send", isMuted)
   }
 
   return (
@@ -129,6 +157,8 @@ export function ChatRoom({
                 isSameUserAsPrev={!!isSameUserAsPrev}
                 firstLetter={firstLetter}
                 index={i}
+                roomCode={roomCode}
+                currentUsername={username} // 👉 FIX: Passed currentUsername down to resolve the missing prop
               />
             )
           })}
@@ -154,9 +184,46 @@ export function ChatRoom({
       </AnimatePresence>
 
       <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0">
-        <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150">
+        <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150 relative">
           
-          {/* 👇 THIS IS THE NEW TEXTAREA SECTION 👇 */}
+          {/* 👉 NEW: ARENA POPOVER MENU */}
+          <AnimatePresence>
+            {showArenaMenu && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute bottom-[120%] left-0 w-40 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/50 rounded-xl shadow-xl overflow-hidden z-50"
+              >
+                <div className="px-3 py-2 border-b border-zinc-800/50 bg-zinc-950/50">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Game</span>
+                </div>
+                <button 
+                  onClick={() => sendGameInvite("tic_tac_toe")}
+                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Gamepad2 size={14} />
+                  Tic-Tac-Toe
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 👉 NEW: ARENA TRIGGER BUTTON */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowArenaMenu(!showArenaMenu)}
+            className={`p-2 mb-0.5 rounded-lg transition-colors shrink-0 ${
+              showArenaMenu 
+                ? "bg-indigo-500/20 text-indigo-400" 
+                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+            }`}
+            title="Open Arena"
+          >
+            <Gamepad2 size={16} />
+          </motion.button>
+
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -168,9 +235,8 @@ export function ChatRoom({
             }}
             placeholder="Type a message..."
             rows={1}
-            className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-zinc-600 text-zinc-200 resize-none min-h-[36px] max-h-32 overflow-y-auto scrollbar-none"
+            className="flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-600 text-zinc-200 resize-none min-h-[36px] max-h-32 overflow-y-auto scrollbar-none"
           />
-          {/* 👆 END OF NEW TEXTAREA SECTION 👆 */}
 
           <motion.button
             whileHover={{ scale: 1.02 }}

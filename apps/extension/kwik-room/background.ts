@@ -80,6 +80,16 @@ socket.on("error", (error) => {
 })
 
 // ==========================================
+// 👉 NEW: ARENA SOCKET EVENTS (Server to UI)
+// ==========================================
+socket.on("game-updated", (data) => {
+  chrome.runtime.sendMessage({
+    type: "game-updated",
+    payload: data
+  })
+})
+
+// ==========================================
 // FIX: DETECT WHEN SIDEBAR CLOSES
 // ==========================================
 chrome.runtime.onConnect.addListener((port) => {
@@ -123,6 +133,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // LOAD OLDER MESSAGES
   if (message.type === "load-more-messages") {
     socket.emit("load-more-messages", message.payload)
+  }
+
+  // ==========================================
+  // 👉 NEW: ARENA CHROME EVENTS (UI to Server)
+  // ==========================================
+  
+  // JOIN GAME
+  if (message.type === "join-game") {
+    socket.emit("join-game", message.payload)
+  }
+
+  // GAME ACTION (e.g., making a move in Tic-Tac-Toe)
+  if (message.type === "game-action") {
+    socket.emit("game-action", message.payload)
   }
 
   return true
