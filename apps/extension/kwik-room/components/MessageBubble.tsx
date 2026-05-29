@@ -16,7 +16,8 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className={`flex items-end gap-2 ${isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"} ${!isSameUserAsPrev && index !== 0 ? "pt-2.5" : ""}`}
+      // 👉 FIX 1: Added w-full so the main flex container respects screen width
+      className={`w-full flex items-end gap-2 ${isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"} ${!isSameUserAsPrev && index !== 0 ? "pt-2.5" : ""}`}
     >
       {!isOwn && !isSystem && (
         <div className="w-5 h-5 shrink-0 flex items-center justify-center mb-0.5">
@@ -35,7 +36,8 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
           <p className="text-[10px] font-medium text-zinc-500 tracking-tight">{msg.text}</p>
         </div>
       ) : (
-        <div className={`flex flex-col max-w-[80%] ${isOwn ? "items-end" : "items-start"}`}>
+        // 👉 FIX 2: Added min-w-0. This forces the flex child to respect max-w-[80%] and shrink!
+        <div className={`flex flex-col max-w-[80%] min-w-0 ${isOwn ? "items-end" : "items-start"}`}>
           {!isSameUserAsPrev && (
             <div className="mb-0.5 px-1">
               <span className={`text-[10px] font-semibold tracking-tight ${isOwn ? "text-zinc-500" : "text-indigo-400"}`}>
@@ -44,9 +46,11 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
             </div>
           )}
 
-          <div className={`px-3 py-2 rounded-2xl text-[13px] break-words relative ${isOwn ? "bg-indigo-600 text-white rounded-br-sm" : "bg-zinc-900 text-zinc-100 border border-zinc-800/60 rounded-bl-sm"} ${isSameUserAsPrev ? "!rounded-2xl" : ""}`}>
+          {/* 👉 FIX 3: Added w-full here */}
+          <div className={`px-3 py-2 rounded-2xl text-[13px] relative w-full ${isOwn ? "bg-indigo-600 text-white rounded-br-sm" : "bg-zinc-900 text-zinc-100 border border-zinc-800/60 rounded-bl-sm"} ${isSameUserAsPrev ? "!rounded-2xl" : ""}`}>
             <div className="flex flex-col gap-0.5">
-              <p className="whitespace-pre-wrap leading-relaxed pr-1 text-zinc-100">{msg.text}</p>
+              {/* 👉 FIX 4: Moved break-words directly onto the paragraph tag */}
+              <p className="whitespace-pre-wrap break-words leading-relaxed pr-1 text-zinc-100">{msg.text}</p>
               <span className={`text-[8px] font-medium mt-1 block text-right ${isOwn ? "text-indigo-200/60" : "text-zinc-500"}`}>
                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
               </span>

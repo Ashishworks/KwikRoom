@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from "framer-motion"
 import { RefObject, useState } from "react"
 import { Message } from "../types"
 import { MessageBubble } from "./MessageBubble"
-import { playSound } from "./sound" // 👉 Added import
+import { playSound } from "./sound"
 
 interface ChatRoomProps {
-  isMuted: boolean // 👉 NEW: Receive mute status
+  isMuted: boolean
   roomCode: string
   username: string
   leaveRoom: () => void
@@ -22,21 +22,19 @@ interface ChatRoomProps {
 }
 
 export function ChatRoom({
-  isMuted, // 👉 Destructured
+  isMuted,
   roomCode, username, leaveRoom, onlineUsers, messages,
   messagesContainerRef, messagesEndRef, showScrollButton,
   scrollToBottom, message, setMessage, sendMessage
 }: ChatRoomProps) {
   
-  // 👉 Handle the copy feedback
   const [copied, setCopied] = useState(false)
 
-  // 👉 Copy code to clipboard
   const copyRoomCode = async () => {
     try {
       await navigator.clipboard.writeText(roomCode)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000) // Reset back to copy icon after 2 seconds
+      setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error("Failed to copy room code")
     }
@@ -145,7 +143,6 @@ export function ChatRoom({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
             onClick={() => {
-              // 👉 TRIGGER SCROLL AND PLAY SOUND
               scrollToBottom()
               playSound("swoosh", isMuted) 
             }}
@@ -157,19 +154,31 @@ export function ChatRoom({
       </AnimatePresence>
 
       <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0">
-        <div className="flex items-center gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150">
-          <input
+        <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150">
+          
+          {/* 👇 THIS IS THE NEW TEXTAREA SECTION 👇 */}
+          <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") sendMessage() }}
+            onKeyDown={(e) => { 
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (message.trim()) sendMessage();
+              }
+            }}
             placeholder="Type a message..."
-            className="flex-1 bg-transparent px-3 py-1.5 text-sm outline-none placeholder:text-zinc-600 text-zinc-200"
+            rows={1}
+            className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-zinc-600 text-zinc-200 resize-none min-h-[36px] max-h-32 overflow-y-auto scrollbar-none"
           />
+          {/* 👆 END OF NEW TEXTAREA SECTION 👆 */}
+
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={sendMessage}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg transition-colors shrink-0"
+            onClick={() => {
+              if (message.trim()) sendMessage();
+            }}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 mb-0.5 rounded-lg transition-colors shrink-0"
           >
             <Send size={14} />
           </motion.button>
