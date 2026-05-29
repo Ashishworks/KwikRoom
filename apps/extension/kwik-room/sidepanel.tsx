@@ -279,6 +279,7 @@ export default function SidePanel() {
         />
       ) : (
         <ChatRoom
+          isMuted={isMuted} 
           roomCode={roomCode} username={username} leaveRoom={leaveRoom}
           onlineUsers={onlineUsers} messages={messages}
           messagesContainerRef={messagesContainerRef} messagesEndRef={messagesEndRef}
