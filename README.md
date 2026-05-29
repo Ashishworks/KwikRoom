@@ -1,236 +1,233 @@
 # KwikRoom
 
-KwikRoom is a realtime room-based communication platform built as a Chrome Extension using Plasmo, React, TypeScript, Socket.IO, Redis, Prisma, and Supabase.
+KwikRoom is a realtime Chrome Extension-based communication platform built with Plasmo, React, TypeScript, Socket.IO, Redis, Prisma, and Supabase.
 
-The project focuses on ultra-fast temporary and persistent room communication with modern realtime architecture, scalable backend design, and clean UI/UX.
+The platform supports both temporary Redis-backed rooms and persistent PostgreSQL-backed rooms with password protection, message persistence, realtime presence tracking, and infinite chat history pagination.
 
----
-
-# Features
-
-## Realtime Communication
-
-- Create realtime rooms instantly
-- Join rooms using unique 5-letter room codes
-- Live messaging using Socket.IO
-- Online user presence tracking
-- Join/leave system messages
-- Multi-user support in a single room
-- Realtime room synchronization
+Designed with an event-driven architecture, KwikRoom focuses on fast communication, scalable backend design, and a modern user experience directly inside the Chrome Side Panel.
 
 ---
 
-## Chrome Extension Support
+## Features
 
-Built using:
+### Realtime Communication
 
-- Plasmo Framework
-- Chrome Sidepanel API
-- React + TypeScript
-- TailwindCSS
+* Create rooms instantly
+* Join rooms using unique room codes
+* Multi-user realtime messaging
+* Live user presence tracking
+* Realtime synchronization across connected clients
+* Socket.IO powered communication
 
-Features:
+### Temporary Rooms
 
-- Opens directly inside Chrome Sidepanel
-- Persistent websocket connection
-- Lightweight architecture
-- Native extension experience
+Redis-backed ephemeral rooms designed for short-term collaboration.
+
+* Fast room creation
+* Lightweight architecture
+* Automatic expiration
+* No database persistence
+
+### Persistent Rooms
+
+PostgreSQL-backed rooms designed for long-term communication.
+
+* Persistent room storage
+* Password-protected access
+* Message persistence
+* Scalable database architecture
+
+### Chat History
+
+* Persistent message storage
+* Initial chat history loading on room join
+* Infinite scroll chat history
+* Efficient cursor-based pagination
+* Seamless loading of older messages
+
+### Chrome Extension Experience
+
+* Built using Plasmo
+* Chrome Side Panel integration
+* Persistent websocket connection
+* Lightweight and responsive interface
+
+### Modern Interface
+
+* Framer Motion animations
+* Responsive chat layout
+* Modern dark-themed UI
+* Realtime updates
 
 ---
 
-## Modern UI/UX
+## Architecture
 
-- Animated chat interface
-- Framer Motion transitions
-- Lucide icons
-- Glassmorphism-inspired UI
-- Minimal custom scrollbar
-- Auto-hidden scrollbar
-- Responsive layout
-- Smooth interactions
+KwikRoom follows a modular event-driven architecture.
 
----
+### Client Layer
 
-## Backend Architecture
+Chrome Extension built with:
 
-Dedicated Socket.IO server separated from frontend.
+* React
+* TypeScript
+* TailwindCSS
+* Framer Motion
+* Plasmo
 
-### Technologies
+Responsibilities:
 
-- Express.js
-- Socket.IO
-- Redis (Upstash)
-- Prisma ORM
-- Supabase PostgreSQL
+* Room management
+* Messaging interface
+* Presence display
+* Chat history rendering
 
----
+### Realtime Layer
 
-## Redis-Based Realtime State
+Socket.IO server handles:
+
+* Room creation
+* Room joining
+* Presence synchronization
+* Message broadcasting
+* Chat history loading
+
+### Data Layer
 
 Redis is used for:
 
-- Active room storage
-- Online presence tracking
-- Temporary room management
-- Room expiration handling
-- Fast ephemeral state management
+* Temporary rooms
+* Active room state
+* Presence management
+* Fast ephemeral storage
+
+PostgreSQL is used for:
+
+* Persistent rooms
+* Message storage
+* Long-term data persistence
 
 ---
 
-## Persistent Database Support
+## Tech Stack
 
-Supabase PostgreSQL + Prisma are used for:
+### Frontend
 
-- Persistent rooms
-- User ownership
-- Future message persistence
-- Future analytics/features
+* React
+* TypeScript
+* TailwindCSS
+* Framer Motion
+* Lucide React
+* Plasmo
+
+### Backend
+
+* Node.js
+* Express.js
+* Socket.IO
+
+### Database
+
+* PostgreSQL
+* Prisma ORM
+* Supabase
+
+### State & Caching
+
+* Redis
+* Upstash Redis
 
 ---
 
-# Monorepo Structure
+## Monorepo Structure
 
-```bash
-kwikroom/
+```text
+KwikRoom/
 │
 ├── apps/
-│   ├── web/                     # Next.js frontend
-│   ├── socket/                  # Socket.IO backend server
-│   └── extension/
-│       └── kwik-room/           # Plasmo Chrome extension
+│   ├── extension/
+│   │   └── kwik-room/
+│   ├── socket/
+│   └── web/
 │
 ├── packages/
-│   ├── db/                      # Shared Prisma client
-│   ├── redis/                   # Shared Redis client
-│   └── utils/                   # Shared utility functions
+│   ├── db/
+│   ├── redis/
+│   └── utils/
 │
 ├── prisma/
 │
 ├── package.json
-└── turbo.json
+└── README.md
 ```
 
 ---
 
-# Tech Stack
+## Socket Events
 
-## Frontend
+### Room Events
 
-- React
-- TypeScript
-- TailwindCSS
-- Framer Motion
-- Lucide React
-- Plasmo
+* createRoom
+* checkRoom
+* joinRoom
+* leaveRoom
 
----
+### Message Events
 
-## Backend
-
-- Node.js
-- Express.js
-- Socket.IO
+* message
+* loadMoreMessages
 
 ---
 
-## Database & State Management
+## Chat History & Pagination
 
-- Redis (Upstash)
-- Supabase PostgreSQL
-- Prisma ORM
+Persistent rooms support chat history retrieval through cursor-based pagination.
 
----
+### Flow
 
-# Socket Architecture
+```text
+User joins room
+        ↓
+Load latest messages
+        ↓
+User scrolls upward
+        ↓
+Request older messages
+        ↓
+Fetch next batch
+        ↓
+Append to chat history
+        ↓
+Continue until history ends
+```
 
-Socket logic is modularized into separate event handlers.
-
-## Current Events
-
-### createRoomEvent
-
-Handles:
-
-- Room creation
-- Redis room initialization
-- User joining after creation
-
----
-
-### joinRoomEvent
-
-Handles:
-
-- Joining existing rooms
-- Presence updates
-- Broadcasting user join events
+This approach minimizes database load while maintaining a smooth user experience.
 
 ---
 
-### leaveRoomEvent
+## Shared Packages
 
-Handles:
+### packages/db
 
-- User disconnects
-- User leaves
-- Cleanup logic
-- Presence updates
+Shared Prisma client used across applications.
 
----
+### packages/redis
 
-### sendMessageEvent
+Shared Redis client for centralized realtime state management.
 
-Handles:
+### packages/utils
 
-- Realtime message broadcasting
-- User message delivery
-- Room-specific communication
+Shared utility functions including:
 
----
-
-# Shared Packages
-
-## `packages/db`
-
-Exports:
-
-- Prisma singleton client
-
-Purpose:
-
-- Prevent multiple Prisma client instances
-- Shared database access across applications
+* Room code generation
+* Message serialization
+* Common helpers
 
 ---
 
-## `packages/redis`
+## Database Schema
 
-Exports:
-
-- Redis client singleton
-
-Purpose:
-
-- Shared Redis connection
-- Centralized caching and state management
-
----
-
-## `packages/utils`
-
-Contains:
-
-- `generateRoomCode()`
-
-Purpose:
-
-- Generates unique 5-letter room codes
-
----
-
-# Database Schema
-
-## Room Model
+### Room
 
 ```prisma
 model Room {
@@ -238,137 +235,53 @@ model Room {
   code         String   @unique
   adminId      String
   isPersistent Boolean  @default(false)
+  password     String?
   createdAt    DateTime @default(now())
+}
+```
+
+### Message
+
+```prisma
+model Message {
+  id         BigInt   @id @default(autoincrement())
+  roomCode   String
+  senderId   String
+  senderName String
+  content    String
+  createdAt  DateTime @default(now())
 }
 ```
 
 ---
 
-# Current Working Features
+## Current Capabilities
 
-## Implemented
-
-- Realtime room creation
-- Join via room code
-- Realtime messaging
-- Online users list
-- System messages
-- Socket connection management
-- Extension sidepanel support
-- Animated UI
-- Shared monorepo architecture
-
----
-
-# Application Flow
-
-## Room Creation
-
-```text
-User creates room
-    ↓
-Socket event emitted
-    ↓
-Redis stores room state
-    ↓
-User automatically joins room
-    ↓
-Room code shared
-```
+* Realtime room creation
+* Room joining through room codes
+* Password-protected rooms
+* Temporary room support
+* Persistent room support
+* Realtime messaging
+* Online user tracking
+* Message persistence
+* Infinite chat history pagination
+* Chrome Side Panel integration
+* Redis-backed state management
+* Modular Socket.IO architecture
 
 ---
 
-## Joining Room
+## Installation
 
-```text
-User enters room code
-    ↓
-Socket validates room
-    ↓
-User joins socket room
-    ↓
-Presence updated
-    ↓
-All users notified
-```
-
----
-
-## Messaging
-
-```text
-User sends message
-    ↓
-Socket event triggered
-    ↓
-Message broadcasted to room
-    ↓
-Realtime UI update
-```
-
----
-
-# Chrome Extension Architecture
-
-## Background Script
-
-The extension uses:
-
-```ts
-background.ts
-```
-
-Responsibilities:
-
-- Maintains websocket connection
-- Handles sidepanel behavior
-- Opens panel on extension click
-- Communicates with Socket.IO backend
-
----
-
-## Sidepanel
-
-The sidepanel acts as:
-
-- Main chat UI
-- Room management interface
-- Presence display
-- Messaging system
-
----
-
-# UI Design Philosophy
-
-KwikRoom focuses on:
-
-- Minimalism
-- Fast interaction
-- Realtime responsiveness
-- Smooth animations
-- Modern developer-tool aesthetics
-
-Inspired by:
-
-- Discord
-- Slack
-- Linear
-- Vercel dashboards
-
----
-
-# Installation
-
-## Clone Repository
+### Clone Repository
 
 ```bash
-git clone <repo-url>
-cd kwikroom
+git clone <repository-url>
+cd KwikRoom
 ```
 
----
-
-## Install Dependencies
+### Install Dependencies
 
 ```bash
 npm install
@@ -376,15 +289,9 @@ npm install
 
 ---
 
-# Environment Variables
+## Environment Variables
 
-Create:
-
-```bash
-.env
-```
-
-Example:
+Create a `.env` file:
 
 ```env
 DATABASE_URL=
@@ -401,15 +308,15 @@ SUPABASE_ANON_KEY=
 
 ---
 
-# Prisma Setup
+## Prisma Setup
 
-Generate Prisma client:
+Generate Prisma Client:
 
 ```bash
 npx prisma generate
 ```
 
-Push schema:
+Apply Database Schema:
 
 ```bash
 npx prisma db push
@@ -417,18 +324,16 @@ npx prisma db push
 
 ---
 
-# Run Development Servers
+## Running the Project
 
-## Run Socket Server
+### Start Socket Server
 
 ```bash
 cd apps/socket
 npm run dev
 ```
 
----
-
-## Run Extension
+### Start Extension
 
 ```bash
 cd apps/extension/kwik-room
@@ -446,18 +351,8 @@ npm run dev
 chrome://extensions
 ```
 
-3. Enable:
-
-```text
-Developer Mode
-```
-
-4. Click:
-
-```text
-Load unpacked
-```
-
+3. Enable Developer Mode
+4. Click **Load Unpacked**
 5. Select:
 
 ```text
@@ -466,119 +361,63 @@ build/chrome-mv3-dev
 
 ---
 
-# Future Roadmap
+## Roadmap
 
-## Planned Features
+### Room Administration
 
-### Persistent Message Storage
+* Room ownership
+* User moderation
+* Ownership transfer
+* Room management controls
 
-- Save messages to PostgreSQL
-- Chat history support
+### Messaging Enhancements
 
----
+* Message editing
+* Message deletion
+* Message reactions
+* Reply support
+* Pinned messages
 
-### Load Last 15 Messages
+### Collaboration
 
-- Fetch recent messages on room join
-- Better user continuity
-
----
-
-### Infinite Scroll Pagination
-
-- Older message loading
-- Optimized performance
-
----
-
-### Room Admin Controls
-
-- Kick users
-- Delete room
-- Transfer ownership
-
----
+* File sharing
+* Image sharing
+* Voice rooms
+* Shared notes
 
 ### Authentication
 
-- User accounts
-- Google login
-- Identity support
+* Google OAuth
+* User accounts
+* User profiles
+
+### Scalability
+
+* Redis Pub/Sub
+* Multi-server Socket.IO deployment
+* Horizontal scaling
+* Analytics dashboard
 
 ---
 
-### Typing Indicators
+## Learning Outcomes
 
-Realtime typing status.
+This project explores:
 
----
-
-### Read Receipts
-
-Track seen messages.
-
----
-
-### File Sharing
-
-Upload and share files.
+* Realtime systems
+* Event-driven architecture
+* Redis-based state management
+* Browser extension development
+* Socket.IO communication patterns
+* PostgreSQL integration
+* Prisma ORM
+* Monorepo architecture
+* Infinite pagination techniques
 
 ---
 
-### Voice Rooms
+## Author
 
-Realtime audio communication.
+**Ashish**
 
----
-
-# Development Goals
-
-The project aims to explore:
-
-- Distributed realtime systems
-- WebSocket scalability
-- Redis ephemeral architecture
-- Browser extension engineering
-- Realtime UX design
-- Event-driven backend systems
-
----
-
-# Learning Outcomes
-
-This project demonstrates understanding of:
-
-- Socket.IO architecture
-- Monorepo management
-- Redis state management
-- Prisma ORM
-- Realtime systems
-- Chrome extension APIs
-- Scalable backend patterns
-- Shared package architecture
-
----
-
-# Contributing
-
-Contributions are welcome in areas such as:
-
-- UI improvements
-- Performance optimization
-- Backend scaling
-- Security enhancements
-- Additional realtime features
-
----
-
-# License
-
-MIT License
-
----
-
-# Author
-
-Built by Ashish.
-
-KwikRoom is designed as a modern realtime communication platform combining extension engineering, distributed systems concepts, and scalable realtime architecture.
+KwikRoom is a modern realtime communication platform combining browser extension engineering, distributed systems concepts, and scalable realtime architecture.
