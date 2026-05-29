@@ -13,7 +13,7 @@ export function gameEvents(io: Server, socket: Socket) {
       action: "start", // Explicit action flag added here
       gameInstanceId: payload.gameInstanceId,
       playersJoined: payload.playersJoined,
-      gameType: "tic_tac_toe"
+      gameType: payload.gameType
     })
   })
 

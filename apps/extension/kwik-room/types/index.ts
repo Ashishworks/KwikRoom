@@ -4,16 +4,15 @@ export type Message = {
   text: string;
   createdAt: string;
   
-  // 👉 NEW: Categorize the message 
   type?: "chat" | "game_invite" | "game_state"; 
   
-  // 👉 NEW: Flexible game data payload
   metadata?: {                                 
-    gameType?: "tic_tac_toe";
+    // 👉 FIX: Added four_in_a_row to the allowed game types
+    gameType?: "tic_tac_toe" | "four_in_a_row";
     gameInstanceId?: string;
     playersJoined?: string[];
     maxPlayers?: number;
-    gameState?: any; // We will use this to pass the board layout later
+    gameState?: any; 
     expired?: boolean;
   };
 };

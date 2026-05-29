@@ -8,6 +8,7 @@ import { Message } from "./types"
 import { Lobby } from "./components/Lobby"
 import { ChatRoom } from "./components/ChatRoom"
 import { TicTacToeArena } from "./games/TicTacToeArena"
+import { FourInARowArena } from "./games/FourInARowArena"
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
@@ -310,13 +311,24 @@ export default function SidePanel() {
           joinRoom={joinRoom} createRoom={createRoom}
         />
       ) : activeGame ? (
-        <TicTacToeArena
-          isMuted={isMuted}
-          roomCode={roomCode}
-          username={username}
-          activeGame={activeGame}
-          setActiveGame={setActiveGame}
-        />
+        // 👉 NEW: Check which game to render
+        activeGame.type === "tic_tac_toe" ? (
+          <TicTacToeArena
+            isMuted={isMuted}
+            roomCode={roomCode}
+            username={username}
+            activeGame={activeGame}
+            setActiveGame={setActiveGame}
+          />
+        ) : (
+          <FourInARowArena
+            isMuted={isMuted}
+            roomCode={roomCode}
+            username={username}
+            activeGame={activeGame}
+            setActiveGame={setActiveGame}
+          />
+        )
       ) : (
         <ChatRoom
           isMuted={isMuted}
