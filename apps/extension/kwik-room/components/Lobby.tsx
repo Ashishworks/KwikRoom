@@ -1,45 +1,9 @@
-import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History } from "lucide-react"
+import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-
-// 👉 NEW: Synthesized UI Sound Generator
-const playToggleSound = (isLocking: boolean) => {
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioContext) return
-    
-    const audioCtx = new AudioContext()
-    const oscillator = audioCtx.createOscillator()
-    const gainNode = audioCtx.createGain()
-
-    oscillator.connect(gainNode)
-    gainNode.connect(audioCtx.destination)
-
-    // Use a sine wave for a soft, rounded sound
-    oscillator.type = "sine"
-    const now = audioCtx.currentTime
-
-    if (isLocking) {
-      // Lock: Pitch drops down (satisfying heavy click)
-      oscillator.frequency.setValueAtTime(400, now)
-      oscillator.frequency.exponentialRampToValueAtTime(150, now + 0.08)
-    } else {
-      // Unlock: Pitch goes up (light springy click)
-      oscillator.frequency.setValueAtTime(250, now)
-      oscillator.frequency.exponentialRampToValueAtTime(500, now + 0.08)
-    }
-
-    // Volume envelope: Start soft, fade out instantly so it's a "click"
-    gainNode.gain.setValueAtTime(0.3, now)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08)
-
-    oscillator.start(now)
-    oscillator.stop(now + 0.08)
-  } catch (e) {
-    // Silently fail if browser restricts audio context
-  }
-}
+import { playSound } from "./sound" // 👉 NEW: Import the global sound utility
 
 interface LobbyProps {
+    isMuted: boolean // 👉 NEW: Added mute status to props
     lastRoomCode: string
     activeTab: "join" | "create"
     setActiveTab: (tab: "join" | "create") => void
@@ -62,6 +26,7 @@ interface LobbyProps {
 }
 
 export function Lobby({
+    isMuted, // 👉 NEW: Destructured here
     lastRoomCode,
     activeTab, setActiveTab, isPersistent, setIsPersistent, roomPassword, setRoomPassword,
     username, setUsername, roomCode, setRoomCode, showPassword, setShowPassword,
@@ -82,7 +47,7 @@ export function Lobby({
 
                 <div className="mb-5 text-center">
                     <div className="mx-auto w-10 h-10 bg-indigo-600/10 border border-indigo-500/20 rounded-xl flex items-center justify-center mb-3">
-                        <Sparkles className="w-5 h-5 text-indigo-400" />
+                        <MessageSquareDot strokeWidth={0.75} />
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">KwikRoom</h1>
                 </div>
@@ -220,10 +185,10 @@ export function Lobby({
                                         <motion.button
                                             whileTap={{ scale: 0.92 }}
                                             onClick={() => {
-                                                // 👉 Trigger the state change AND the sound
                                                 const newState = !isPersistent;
                                                 setIsPersistent(newState);
-                                                playToggleSound(newState);
+                                                // 👉 UPDATED: Use the global sound utility with isMuted
+                                                playSound(newState ? "lock" : "unlock", isMuted);
                                             }}
                                             className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-200 ${isPersistent ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "bg-red-500/15 border-red-500/40 text-red-400"}`}
                                         >

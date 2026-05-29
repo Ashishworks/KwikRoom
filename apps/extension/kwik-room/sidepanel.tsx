@@ -2,6 +2,8 @@ import "./style.css"
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { Volume2, VolumeX } from "lucide-react" // 👉 NEW: Icons
+import { playSound } from "./components/sound" // 👉 NEW: Sound utility
 import { Message } from "./types"
 import { Lobby } from "./components/Lobby"
 import { ChatRoom } from "./components/ChatRoom"
@@ -25,8 +27,10 @@ export default function SidePanel() {
   const [checkingRoom, setCheckingRoom] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
 
-  // 👉 NEW STATE: Hold the saved room code
   const [lastRoomCode, setLastRoomCode] = useState("")
+  
+  // 👉 NEW STATE: Global Mute Status
+  const [isMuted, setIsMuted] = useState(false)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -36,10 +40,13 @@ export default function SidePanel() {
   const previousScrollTopRef = useRef<number>(0)
   const canPaginateRef = useRef<boolean>(false)
 
-  // 👉 NEW EFFECT: Check for saved code on mount
+  // 👉 UPDATED EFFECT: Check for saved code AND mute status on mount
   useEffect(() => {
-    const saved = localStorage.getItem("kwik_last_room")
-    if (saved) setLastRoomCode(saved)
+    const savedRoom = localStorage.getItem("kwik_last_room")
+    if (savedRoom) setLastRoomCode(savedRoom)
+
+    const savedMute = localStorage.getItem("kwik_muted")
+    if (savedMute === "true") setIsMuted(true)
   }, [])
 
   useEffect(() => {
@@ -96,15 +103,20 @@ export default function SidePanel() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+   
   }
 
   const roomCodeRef = useRef(roomCode)
   const usernameRef = useRef(username)
   const roomPasswordRef = useRef(roomPassword)
+  
+  // 👉 NEW REF: We need this so the socket listener always knows the current mute status!
+  const isMutedRef = useRef(isMuted)
 
   useEffect(() => { usernameRef.current = username }, [username])
   useEffect(() => { roomCodeRef.current = roomCode }, [roomCode])
   useEffect(() => { roomPasswordRef.current = roomPassword }, [roomPassword])
+  useEffect(() => { isMutedRef.current = isMuted }, [isMuted]) // Sync mute status
 
   useEffect(() => {
     const listener = (message: any) => {
@@ -152,9 +164,11 @@ export default function SidePanel() {
         canPaginateRef.current = false
         setTimeout(() => { canPaginateRef.current = true }, 2000)
 
-        // 👉 NEW LOGIC: Save the room code when successfully joined
         localStorage.setItem("kwik_last_room", roomCodeRef.current)
         setLastRoomCode(roomCodeRef.current)
+        
+        // 👉 PLAY SUCCESS SOUND
+        playSound("success", isMutedRef.current)
       }
 
       if (message.type === "socket-error") {
@@ -162,7 +176,15 @@ export default function SidePanel() {
         if (message.payload === "Invalid password") setIncorrectPassword(true)
       }
 
-      if (message.type === "message") appendMessage(message.payload)
+      if (message.type === "message") {
+        appendMessage(message.payload)
+        
+        // 👉 PLAY RECEIVE SOUND (Only if it's not our own message and not a system message)
+        if (message.payload.username !== usernameRef.current && message.payload.username !== "System") {
+          playSound("receive", isMutedRef.current)
+        }
+      }
+
       if (message.type === "online-users") setOnlineUsers(message.payload)
       
       if (message.type === "older-messages-loaded") {
@@ -205,6 +227,9 @@ export default function SidePanel() {
     })
     setMessage("")
     scrollToBottom()
+    
+    // 👉 PLAY SEND SOUND
+    playSound("send", isMuted)
   }
 
   const leaveRoom = () => {
@@ -221,30 +246,46 @@ export default function SidePanel() {
     setShowScrollButton(false)
   }
 
-  if (!joined) {
-    return (
-      <Lobby
-        lastRoomCode={lastRoomCode} // 👉 NEW PROP PASSED DOWN
-        activeTab={activeTab} setActiveTab={setActiveTab}
-        isPersistent={isPersistent} setIsPersistent={setIsPersistent}
-        roomPassword={roomPassword} setRoomPassword={setRoomPassword}
-        username={username} setUsername={setUsername}
-        roomCode={roomCode} setRoomCode={setRoomCode}
-        showPassword={showPassword} setShowPassword={setShowPassword}
-        checkingRoom={checkingRoom} roomExists={roomExists}
-        requiresPassword={requiresPassword} incorrectPassword={incorrectPassword}
-        joinRoom={joinRoom} createRoom={createRoom}
-      />
-    )
-  }
-
   return (
-    <ChatRoom
-      roomCode={roomCode} username={username} leaveRoom={leaveRoom}
-      onlineUsers={onlineUsers} messages={messages}
-      messagesContainerRef={messagesContainerRef} messagesEndRef={messagesEndRef}
-      showScrollButton={showScrollButton} scrollToBottom={scrollToBottom}
-      message={message} setMessage={setMessage} sendMessage={sendMessage}
-    />
+    <>
+      {/* 👉 NEW: Floating Global Mute Button */}
+      <div className="fixed top-20 right-4 -translate-x-1/2 z-50">
+        <button
+          onClick={() => {
+            const newMuted = !isMuted
+            setIsMuted(newMuted)
+            localStorage.setItem("kwik_muted", String(newMuted))
+          }}
+          className="p-1.5 text-zinc-400 opacity-40 hover:opacity-100 hover:text-white transition-all bg-zinc-900/40 hover:bg-zinc-800 border border-zinc-800/50 rounded-full backdrop-blur-md cursor-pointer"
+          title={isMuted ? "Unmute sounds" : "Mute sounds"}
+        >
+          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+        </button>
+      </div>
+
+      {!joined ? (
+        <Lobby
+          isMuted={isMuted} // 👉 PASSING MUTE STATE TO LOBBY
+          lastRoomCode={lastRoomCode}
+          activeTab={activeTab} setActiveTab={setActiveTab}
+          isPersistent={isPersistent} setIsPersistent={setIsPersistent}
+          roomPassword={roomPassword} setRoomPassword={setRoomPassword}
+          username={username} setUsername={setUsername}
+          roomCode={roomCode} setRoomCode={setRoomCode}
+          showPassword={showPassword} setShowPassword={setShowPassword}
+          checkingRoom={checkingRoom} roomExists={roomExists}
+          requiresPassword={requiresPassword} incorrectPassword={incorrectPassword}
+          joinRoom={joinRoom} createRoom={createRoom}
+        />
+      ) : (
+        <ChatRoom
+          roomCode={roomCode} username={username} leaveRoom={leaveRoom}
+          onlineUsers={onlineUsers} messages={messages}
+          messagesContainerRef={messagesContainerRef} messagesEndRef={messagesEndRef}
+          showScrollButton={showScrollButton} scrollToBottom={scrollToBottom}
+          message={message} setMessage={setMessage} sendMessage={sendMessage}
+        />
+      )}
+    </>
   )
 }

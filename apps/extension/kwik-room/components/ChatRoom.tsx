@@ -1,10 +1,12 @@
-import { LogOut, Users, ChevronDown, Send } from "lucide-react"
+import { LogOut, Users, ChevronDown, Send, Copy, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { RefObject } from "react"
+import { RefObject, useState } from "react"
 import { Message } from "../types"
 import { MessageBubble } from "./MessageBubble"
+import { playSound } from "./sound" // 👉 Added import
 
 interface ChatRoomProps {
+  isMuted: boolean // 👉 NEW: Receive mute status
   roomCode: string
   username: string
   leaveRoom: () => void
@@ -20,17 +22,45 @@ interface ChatRoomProps {
 }
 
 export function ChatRoom({
+  isMuted, // 👉 Destructured
   roomCode, username, leaveRoom, onlineUsers, messages,
   messagesContainerRef, messagesEndRef, showScrollButton,
   scrollToBottom, message, setMessage, sendMessage
 }: ChatRoomProps) {
+  
+  // 👉 Handle the copy feedback
+  const [copied, setCopied] = useState(false)
+
+  // 👉 Copy code to clipboard
+  const copyRoomCode = async () => {
+    try {
+      await navigator.clipboard.writeText(roomCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000) // Reset back to copy icon after 2 seconds
+    } catch (err) {
+      console.error("Failed to copy room code")
+    }
+  }
+
   return (
     <div className="h-screen bg-zinc-950 text-white flex flex-col selection:bg-indigo-500/30 relative">
       <div className="border-b border-zinc-900 p-4 flex items-center justify-between bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-10">
         <div>
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            <h2 className="text-sm font-semibold tracking-tight text-zinc-200">Room {roomCode}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold tracking-tight text-zinc-200">Room {roomCode}</h2>
+              
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={copyRoomCode}
+                className="text-zinc-500 hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-zinc-900"
+                title="Copy Room Code"
+              >
+                {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+              </motion.button>
+            </div>
           </div>
           <p className="text-[11px] text-zinc-500 mt-0.5">Signed in as <span className="text-zinc-400 font-medium">{username}</span></p>
         </div>
@@ -114,7 +144,11 @@ export function ChatRoom({
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
-            onClick={scrollToBottom}
+            onClick={() => {
+              // 👉 TRIGGER SCROLL AND PLAY SOUND
+              scrollToBottom()
+              playSound("swoosh", isMuted) 
+            }}
             className="absolute bottom-20 right-4 p-2 bg-zinc-800/30 border border-zinc-700/40 text-zinc-400 backdrop-blur-md shadow-lg hover:bg-zinc-800/95 hover:border-zinc-600 hover:text-white hover:shadow-xl rounded-full transition-all duration-300 ease-out z-20"
           >
             <ChevronDown size={20} />
