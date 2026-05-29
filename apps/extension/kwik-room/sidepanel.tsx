@@ -1,7 +1,6 @@
 import "./style.css"
 "use client"
 
-// 1. Added ChevronDown to imports
 import { Send, Users, LogOut, Shield, Key, Sparkles, PlusCircle, LogIn, Lock, Unlock, Eye, EyeOff, ChevronDown } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -31,7 +30,6 @@ export default function SidePanel() {
   const [incorrectPassword, setIncorrectPassword] = useState(false)
   const [checkingRoom, setCheckingRoom] = useState(false)
 
-  // 2. Added state for scroll-to-bottom button
   const [showScrollButton, setShowScrollButton] = useState(false)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
@@ -490,7 +488,6 @@ export default function SidePanel() {
     )
   }
 
-  // 4. Added "relative" to the main parent div so the button positions correctly
   return (
     <div className="h-screen bg-zinc-950 text-white flex flex-col selection:bg-indigo-500/30 relative">
       <div className="border-b border-zinc-900 p-4 flex items-center justify-between bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-10">
