@@ -25,6 +25,9 @@ export default function SidePanel() {
   const [checkingRoom, setCheckingRoom] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
 
+  // 👉 NEW STATE: Hold the saved room code
+  const [lastRoomCode, setLastRoomCode] = useState("")
+
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const shouldAutoScrollRef = useRef<boolean>(true)
@@ -32,6 +35,12 @@ export default function SidePanel() {
   const previousScrollHeightRef = useRef<number>(0)
   const previousScrollTopRef = useRef<number>(0)
   const canPaginateRef = useRef<boolean>(false)
+
+  // 👉 NEW EFFECT: Check for saved code on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("kwik_last_room")
+    if (saved) setLastRoomCode(saved)
+  }, [])
 
   useEffect(() => {
     const port = chrome.runtime.connect({ name: "sidepanel-lifecycle" })
@@ -142,6 +151,10 @@ export default function SidePanel() {
         setHasMore(message.payload.messages.length === 15)
         canPaginateRef.current = false
         setTimeout(() => { canPaginateRef.current = true }, 2000)
+
+        // 👉 NEW LOGIC: Save the room code when successfully joined
+        localStorage.setItem("kwik_last_room", roomCodeRef.current)
+        setLastRoomCode(roomCodeRef.current)
       }
 
       if (message.type === "socket-error") {
@@ -211,6 +224,7 @@ export default function SidePanel() {
   if (!joined) {
     return (
       <Lobby
+        lastRoomCode={lastRoomCode} // 👉 NEW PROP PASSED DOWN
         activeTab={activeTab} setActiveTab={setActiveTab}
         isPersistent={isPersistent} setIsPersistent={setIsPersistent}
         roomPassword={roomPassword} setRoomPassword={setRoomPassword}
