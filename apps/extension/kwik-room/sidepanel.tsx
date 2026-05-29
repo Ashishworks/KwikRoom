@@ -10,7 +10,7 @@ import { ChatRoom } from "./components/ChatRoom"
 import { TicTacToeArena } from "./games/TicTacToeArena"
 import { FourInARowArena } from "./games/FourInARowArena"
 import { WordGuessArena } from "./games/WordGuessArena"
-
+import { ScribbleArena } from "./games/ScribbleArena" 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
   const [isPersistent, setIsPersistent] = useState(false)
@@ -191,18 +191,12 @@ export default function SidePanel() {
       }
 
       // ==========================================
-      // 👉 FIX: BULLETPROOF ARENA ROUTING
-      // ==========================================
-      // ==========================================
-      // ARENA ROUTING & EXPIRATION LOGIC
-      // ==========================================
-      // ==========================================
       // ARENA ROUTING & EXPIRATION LOGIC
       // ==========================================
       if (message.type === "game-updated") {
         const { action, gameInstanceId, playersJoined, gameType } = message.payload;
 
-        const maxPlayers = gameType === "word_guess" ? 7 : 2;
+        const maxPlayers = (gameType === "word_guess" || gameType === "scribble_it") ? 7 : 2;
 
         // Expire the invite if someone leaves OR the room hits max capacity
         if (action === "leave" || (action === "start" && playersJoined?.length === maxPlayers)) {
@@ -321,9 +315,11 @@ export default function SidePanel() {
           <TicTacToeArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         ) : activeGame.type === "four_in_a_row" ? (
           <FourInARowArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
-        ) : (
-          // 👉 NEW: Route to Word Guess
+        ) : activeGame.type === "word_guess" ? (
           <WordGuessArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
+        ) : (
+          // 👉 NEW: Route to Scribble
+          <ScribbleArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         )
       ) : (
         <ChatRoom

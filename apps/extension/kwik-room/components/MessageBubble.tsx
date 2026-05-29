@@ -62,9 +62,11 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
                             ? "Tic-Tac-Toe"
                             : msg.metadata?.gameType === "four_in_a_row"
                                 ? "Four in a Row"
-                                : msg.metadata?.gameType === "word_guess" // 👉 FIX
+                                : msg.metadata?.gameType === "word_guess"
                                     ? "Word Guess"
-                                    : "a game"}!
+                                    : msg.metadata?.gameType === "scribble_it" // 👉 FIX
+                                        ? "Scribble"
+                                        : "a game"}!
                     </p>
 
                     <div className="flex justify-between items-center text-[10px] font-medium mb-2">

@@ -43,8 +43,8 @@ export function ChatRoom({
     }
   }
 
-  // 👉 NEW: Function to dispatch the game invite message
-  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess") => {
+  // 👉 FIX: Update signature to include scribble_it
+  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess" | "scribble_it") => {
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
     
     chrome.runtime.sendMessage({
@@ -52,13 +52,14 @@ export function ChatRoom({
       payload: { 
         room: roomCode, 
         username, 
-        message: "Arena Challenge", // Fallback text for the database/logs
+        message: "Arena Challenge", 
         type: "game_invite",
         metadata: {
           gameType,
           gameInstanceId: gameId,
           playersJoined: [username],
-          maxPlayers: gameType === "word_guess" ? 7 : 2
+          // 👉 FIX: Allow 7 players for Word Guess AND Scribble!
+          maxPlayers: (gameType === "word_guess" || gameType === "scribble_it") ? 7 : 2 
         }
       }
     })
@@ -221,6 +222,14 @@ export function ChatRoom({
                 >
                   <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">W</span>
                   Word Guess
+                </button>
+                {/* 👉 NEW: Scribble Button */}
+                <button 
+                  onClick={() => sendGameInvite("scribble_it")}
+                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">✎</span>
+                  Scribble
                 </button>
               </motion.div>
             )}
