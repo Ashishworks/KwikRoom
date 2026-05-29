@@ -1,8 +1,46 @@
 import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
+// 👉 NEW: Synthesized UI Sound Generator
+const playToggleSound = (isLocking: boolean) => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContext) return
+    
+    const audioCtx = new AudioContext()
+    const oscillator = audioCtx.createOscillator()
+    const gainNode = audioCtx.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioCtx.destination)
+
+    // Use a sine wave for a soft, rounded sound
+    oscillator.type = "sine"
+    const now = audioCtx.currentTime
+
+    if (isLocking) {
+      // Lock: Pitch drops down (satisfying heavy click)
+      oscillator.frequency.setValueAtTime(400, now)
+      oscillator.frequency.exponentialRampToValueAtTime(150, now + 0.08)
+    } else {
+      // Unlock: Pitch goes up (light springy click)
+      oscillator.frequency.setValueAtTime(250, now)
+      oscillator.frequency.exponentialRampToValueAtTime(500, now + 0.08)
+    }
+
+    // Volume envelope: Start soft, fade out instantly so it's a "click"
+    gainNode.gain.setValueAtTime(0.3, now)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08)
+
+    oscillator.start(now)
+    oscillator.stop(now + 0.08)
+  } catch (e) {
+    // Silently fail if browser restricts audio context
+  }
+}
+
 interface LobbyProps {
-    lastRoomCode: string // 👉 Added this prop
+    lastRoomCode: string
     activeTab: "join" | "create"
     setActiveTab: (tab: "join" | "create") => void
     isPersistent: boolean
@@ -24,7 +62,7 @@ interface LobbyProps {
 }
 
 export function Lobby({
-    lastRoomCode, // 👉 Destructured here
+    lastRoomCode,
     activeTab, setActiveTab, isPersistent, setIsPersistent, roomPassword, setRoomPassword,
     username, setUsername, roomCode, setRoomCode, showPassword, setShowPassword,
     checkingRoom, roomExists, requiresPassword, incorrectPassword, joinRoom, createRoom
@@ -100,9 +138,6 @@ export function Lobby({
                                     className="w-full bg-zinc-950/80 border border-zinc-800 focus:border-indigo-500/80 rounded-xl px-4 py-3 text-sm outline-none transition placeholder:text-zinc-600 tracking-wider font-mono"
                                 />
 
-                                {/* 👉 NEW: Recent Room Code Button */}
-                                {/* 👉 UPDATED: Centered, small, and pill-shaped */}
-                                {/* 👉 NEW: Wrapped in AnimatePresence and added overflow-hidden & spring physics */}
                                 <AnimatePresence>
                                     {lastRoomCode && roomCode !== lastRoomCode && (
                                         <motion.div
@@ -184,7 +219,12 @@ export function Lobby({
 
                                         <motion.button
                                             whileTap={{ scale: 0.92 }}
-                                            onClick={() => setIsPersistent(!isPersistent)}
+                                            onClick={() => {
+                                                // 👉 Trigger the state change AND the sound
+                                                const newState = !isPersistent;
+                                                setIsPersistent(newState);
+                                                playToggleSound(newState);
+                                            }}
                                             className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-200 ${isPersistent ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "bg-red-500/15 border-red-500/40 text-red-400"}`}
                                         >
                                             <motion.div animate={{ rotate: isPersistent ? 0 : -15, scale: isPersistent ? 1 : 0.92 }} transition={{ type: "spring", stiffness: 300, damping: 18 }}>
