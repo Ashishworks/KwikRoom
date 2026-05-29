@@ -436,7 +436,7 @@ export default function SidePanel() {
                           }}
                           transition={{ type: "spring", stiffness: 300, damping: 18 }}
                         >
-                          {isPersistent ? <Unlock size={15} /> : <Lock size={15} />}
+                          {isPersistent ? <Lock size={15} /> : <Unlock size={15} />}
                         </motion.div>
                       </motion.button>
                     </div>
