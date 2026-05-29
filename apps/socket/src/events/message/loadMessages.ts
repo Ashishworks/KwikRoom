@@ -1,86 +1,52 @@
-import { Server, Socket }
-  from "socket.io"
-
-import { prisma }
-  from "@kwikroom/db"
+import { Server, Socket } from "socket.io"
+import { prisma } from "@kwikroom/db"
+import { serializeMessage } from "@kwikroom/utils"
 
 export function loadMessagesEvent(
   io: Server,
   socket: Socket
 ) {
-
   socket.on(
     "load-more-messages",
-
     async ({
       room,
       cursor
     }) => {
-
       try {
+        const messages = await prisma.message.findMany({
+          where: {
+            roomCode: room,
+            id: {
+              lt: BigInt(cursor)
+            }
+          },
+          orderBy: {
+            id: "desc"
+          },
+          take: 15
+        })
 
-        const messages =
-          await prisma.message.findMany({
-
-            where: {
-
-              roomCode: room,
-
-              id: {
-                lt: BigInt(cursor)
-              }
-
-            },
-
-            orderBy: {
-              id: "desc"
-            },
-
-            take: 15
-
-          })
-
-        const orderedMessages =
-  messages
-    .reverse()
-    .map((msg) => ({
-
-      id: Number(msg.id),
-
-      username:
-        msg.senderName,
-
-      text:
-        msg.content,
-
-      createdAt:
-        msg.createdAt
-
-    }))
+        // FIX: Replaced manual mapping with your serializeMessage utility 
+        // to ensure BigInt conversion is identical across your app
+        const orderedMessages = messages
+          .reverse()
+          .map(serializeMessage)
 
         socket.emit(
           "older-messages-loaded",
           {
-            messages:
-              orderedMessages,
-
-            hasMore:
-              messages.length === 15
+            messages: orderedMessages,
+            hasMore: messages.length === 15
           }
         )
 
       } catch (error) {
-
         console.log(error)
-
         socket.emit(
           "error",
           "Failed to load messages"
         )
-
       }
-
     }
   )
-
 }
