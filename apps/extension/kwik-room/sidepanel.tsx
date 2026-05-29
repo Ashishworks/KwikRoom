@@ -9,6 +9,7 @@ import { Lobby } from "./components/Lobby"
 import { ChatRoom } from "./components/ChatRoom"
 import { TicTacToeArena } from "./games/TicTacToeArena"
 import { FourInARowArena } from "./games/FourInARowArena"
+import { WordGuessArena } from "./games/WordGuessArena"
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
@@ -32,7 +33,7 @@ export default function SidePanel() {
   const [lastRoomCode, setLastRoomCode] = useState("")
   const [isMuted, setIsMuted] = useState(false)
 
-  const [activeGame, setActiveGame] = useState<{ id: string, opponent: string, isX: boolean, type: string } | null>(null)
+  const [activeGame, setActiveGame] = useState<{ id: string, opponent: string, isX: boolean, type: string, creator?: string, players?: string[] } | null>(null)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -195,35 +196,40 @@ export default function SidePanel() {
       // ==========================================
       // ARENA ROUTING & EXPIRATION LOGIC
       // ==========================================
+      // ==========================================
+      // ARENA ROUTING & EXPIRATION LOGIC
+      // ==========================================
       if (message.type === "game-updated") {
         const { action, gameInstanceId, playersJoined, gameType } = message.payload;
 
-        // 👉 FIX: Instantly expire the invite for everyone if the game starts or someone leaves
-        if (action === "start" || action === "leave") {
+        const maxPlayers = gameType === "word_guess" ? 7 : 2;
+
+        // Expire the invite if someone leaves OR the room hits max capacity
+        if (action === "leave" || (action === "start" && playersJoined?.length === maxPlayers)) {
           setMessages((prev) => prev.map((msg) => {
             if (msg.type === "game_invite" && msg.metadata?.gameInstanceId === gameInstanceId) {
-              return {
-                ...msg,
-                metadata: { ...msg.metadata, expired: true }
-              }
+              return { ...msg, metadata: { ...msg.metadata, expired: true } }
             }
             return msg
           }))
         }
 
-        // Listen explicitly for the "start" action to pull the creator in
-        if (action === "start" && playersJoined?.length === 2) {
+        // Mount the game as long as at least 1 person has joined the creator
+        if (action === "start" && playersJoined?.length >= 2) {
 
           if (playersJoined.includes(usernameRef.current)) {
-            const opponent = playersJoined.find((p: string) => p !== usernameRef.current) || "Opponent";
-            const isCreator = playersJoined[0] === usernameRef.current;
+            const opponents = playersJoined.filter((p: string) => p !== usernameRef.current).join(", ");
+            const creator = playersJoined[0];
+            const isCreator = creator === usernameRef.current;
 
-            setActiveGame({
+            setActiveGame(prev => ({
               id: gameInstanceId,
               type: gameType || "tic_tac_toe",
-              opponent,
-              isX: isCreator
-            });
+              opponent: opponents,
+              isX: isCreator,
+              creator: creator, // Track who made it
+              players: playersJoined // Track everyone
+            }));
           }
         }
       }
@@ -311,23 +317,13 @@ export default function SidePanel() {
           joinRoom={joinRoom} createRoom={createRoom}
         />
       ) : activeGame ? (
-        // 👉 NEW: Check which game to render
         activeGame.type === "tic_tac_toe" ? (
-          <TicTacToeArena
-            isMuted={isMuted}
-            roomCode={roomCode}
-            username={username}
-            activeGame={activeGame}
-            setActiveGame={setActiveGame}
-          />
+          <TicTacToeArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
+        ) : activeGame.type === "four_in_a_row" ? (
+          <FourInARowArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         ) : (
-          <FourInARowArena
-            isMuted={isMuted}
-            roomCode={roomCode}
-            username={username}
-            activeGame={activeGame}
-            setActiveGame={setActiveGame}
-          />
+          // 👉 NEW: Route to Word Guess
+          <WordGuessArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         )
       ) : (
         <ChatRoom

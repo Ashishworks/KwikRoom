@@ -44,7 +44,7 @@ export function ChatRoom({
   }
 
   // 👉 NEW: Function to dispatch the game invite message
-  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row") => {
+  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess") => {
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
     
     chrome.runtime.sendMessage({
@@ -58,7 +58,7 @@ export function ChatRoom({
           gameType,
           gameInstanceId: gameId,
           playersJoined: [username],
-          maxPlayers: 2
+          maxPlayers: gameType === "word_guess" ? 7 : 2
         }
       }
     })
@@ -213,6 +213,14 @@ export function ChatRoom({
                 >
                   <div className="w-3 h-3 rounded-full border-2 border-current" />
                   Four in a Row
+                </button>
+                {/* 👉 NEW: Word Guess Button */}
+                <button 
+                  onClick={() => sendGameInvite("word_guess")}
+                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">W</span>
+                  Word Guess
                 </button>
               </motion.div>
             )}

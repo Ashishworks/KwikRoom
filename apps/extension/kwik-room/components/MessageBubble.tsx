@@ -58,12 +58,13 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
 
                     <p className="text-[11px] text-zinc-400 mb-3 leading-relaxed">
                         <span className="font-semibold text-zinc-300">{msg.username}</span> challenged the room to{" "}
-                        {/* 👉 FIX: Display the correct name based on gameType */}
                         {msg.metadata?.gameType === "tic_tac_toe"
                             ? "Tic-Tac-Toe"
                             : msg.metadata?.gameType === "four_in_a_row"
                                 ? "Four in a Row"
-                                : "a game"}!
+                                : msg.metadata?.gameType === "word_guess" // 👉 FIX
+                                    ? "Word Guess"
+                                    : "a game"}!
                     </p>
 
                     <div className="flex justify-between items-center text-[10px] font-medium mb-2">
@@ -90,12 +91,12 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
                             })
                         }}
                         className={`w-full py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${isExpired
-                                ? "bg-zinc-900 text-red-500/50 border border-zinc-800 cursor-not-allowed"
-                                : alreadyJoined
-                                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/50"
-                                    : isFull
-                                        ? "bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800"
-                                        : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 active:scale-[0.98]"
+                            ? "bg-zinc-900 text-red-500/50 border border-zinc-800 cursor-not-allowed"
+                            : alreadyJoined
+                                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/50"
+                                : isFull
+                                    ? "bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800"
+                                    : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 active:scale-[0.98]"
                             }`}
                     >
                         {isExpired ? "Expired" : alreadyJoined ? "Ready" : isFull ? "Game Full" : "Accept Challenge"}
