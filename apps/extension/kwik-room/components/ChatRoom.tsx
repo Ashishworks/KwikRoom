@@ -4,6 +4,8 @@ import { RefObject, useState } from "react"
 import { Message } from "../types"
 import { MessageBubble } from "./MessageBubble"
 import { playSound } from "./sound"
+import { InfoTooltip } from "./InfoTooltip"
+import { GAME_RULES } from "../games/gameRules"
 
 interface ChatRoomProps {
   isMuted: boolean
@@ -27,9 +29,9 @@ export function ChatRoom({
   messagesContainerRef, messagesEndRef, showScrollButton,
   scrollToBottom, message, setMessage, sendMessage
 }: ChatRoomProps) {
-  
+
   const [copied, setCopied] = useState(false)
-  
+
   // 👉 NEW: State to toggle the Arena games menu
   const [showArenaMenu, setShowArenaMenu] = useState(false)
 
@@ -44,26 +46,26 @@ export function ChatRoom({
   }
 
   // 👉 FIX: Update signature to include scribble_it
-  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess" | "scribble_it") => {
+  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess" | "scribble_it" | "the_spy") => {
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
-    
+
     chrome.runtime.sendMessage({
       type: "message",
-      payload: { 
-        room: roomCode, 
-        username, 
-        message: "Arena Challenge", 
+      payload: {
+        room: roomCode,
+        username,
+        message: "Arena Challenge",
         type: "game_invite",
         metadata: {
           gameType,
           gameInstanceId: gameId,
           playersJoined: [username],
-          // 👉 FIX: Allow 7 players for Word Guess AND Scribble!
-          maxPlayers: (gameType === "word_guess" || gameType === "scribble_it") ? 7 : 2 
+          // 👉 FIX: Spy allows up to 7 players!
+          maxPlayers: ["word_guess", "scribble_it", "the_spy"].includes(gameType) ? 7 : 2
         }
       }
     })
-    
+
     setShowArenaMenu(false)
     scrollToBottom()
     playSound("send", isMuted)
@@ -77,7 +79,7 @@ export function ChatRoom({
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold tracking-tight text-zinc-200">Room {roomCode}</h2>
-              
+
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -175,7 +177,7 @@ export function ChatRoom({
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
             onClick={() => {
               scrollToBottom()
-              playSound("swoosh", isMuted) 
+              playSound("swoosh", isMuted)
             }}
             className="absolute bottom-20 right-4 p-2 bg-zinc-800/30 border border-zinc-700/40 text-zinc-400 backdrop-blur-md shadow-lg hover:bg-zinc-800/95 hover:border-zinc-600 hover:text-white hover:shadow-xl rounded-full transition-all duration-300 ease-out z-20"
           >
@@ -186,51 +188,90 @@ export function ChatRoom({
 
       <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0">
         <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150 relative">
-          
-          {/* 👉 NEW: ARENA POPOVER MENU */}
+
           {/* 👉 NEW: ARENA POPOVER MENU */}
           <AnimatePresence>
             {showArenaMenu && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute bottom-[120%] left-0 w-44 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/50 rounded-xl shadow-xl overflow-hidden z-50"
+                className="absolute bottom-[120%] left-0 w-52 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/50 rounded-xl shadow-xl overflow-hidden z-50"
               >
                 <div className="px-3 py-2 border-b border-zinc-800/50 bg-zinc-950/50">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Game</span>
                 </div>
-                <button 
-                  onClick={() => sendGameInvite("tic_tac_toe")}
-                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2 border-b border-zinc-800/30"
-                >
-                  <Gamepad2 size={14} />
-                  Tic-Tac-Toe
-                </button>
-                {/* 👉 NEW: Four in a Row Button */}
-                <button 
-                  onClick={() => sendGameInvite("four_in_a_row")}
-                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <div className="w-3 h-3 rounded-full border-2 border-current" />
-                  Four in a Row
-                </button>
-                {/* 👉 NEW: Word Guess Button */}
-                <button 
-                  onClick={() => sendGameInvite("word_guess")}
-                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">W</span>
-                  Word Guess
-                </button>
-                {/* 👉 NEW: Scribble Button */}
-                <button 
-                  onClick={() => sendGameInvite("scribble_it")}
-                  className="w-full text-left px-3 py-2.5 text-xs font-medium text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">✎</span>
-                  Scribble
-                </button>
+                
+                {/* Tic-Tac-Toe */}
+                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                  <button
+                    onClick={() => sendGameInvite("tic_tac_toe")}
+                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                  >
+                    <Gamepad2 size={14} />
+                    Tic-Tac-Toe
+                  </button>
+                  <div className="pr-3 pl-1 py-2.5">
+                    <InfoTooltip text={GAME_RULES.tic_tac_toe} position="right" />
+                  </div>
+                </div>
+
+                {/* Four in a Row */}
+                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                  <button
+                    onClick={() => sendGameInvite("four_in_a_row")}
+                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                  >
+                    <div className="w-3 h-3 rounded-full border-2 border-current" />
+                    Four in a Row
+                  </button>
+                  <div className="pr-3 pl-1 py-2.5">
+                    <InfoTooltip text={GAME_RULES.four_in_a_row} position="right" />
+                  </div>
+                </div>
+
+                {/* Word Guess */}
+                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                  <button
+                    onClick={() => sendGameInvite("word_guess")}
+                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                  >
+                    <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">W</span>
+                    Word Guess
+                  </button>
+                  <div className="pr-3 pl-1 py-2.5">
+                    <InfoTooltip text={GAME_RULES.word_guess} position="right" />
+                  </div>
+                </div>
+
+                {/* Scribble */}
+                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                  <button
+                    onClick={() => sendGameInvite("scribble_it")}
+                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                  >
+                    <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">✎</span>
+                    Scribble
+                  </button>
+                  <div className="pr-3 pl-1 py-2.5">
+                    <InfoTooltip text={GAME_RULES.scribble_it} position="right" />
+                  </div>
+                </div>
+
+                {/* The Spy */}
+                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors">
+                  <button
+                    onClick={() => sendGameInvite("the_spy")}
+                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                  >
+                    <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">🕵️‍♂️</span>
+                    The Spy
+                  </button>
+                  <div className="pr-3 pl-1 py-2.5">
+                    <InfoTooltip text={GAME_RULES.the_spy} position="right" />
+                  </div>
+                </div>
+
               </motion.div>
             )}
           </AnimatePresence>
@@ -240,11 +281,10 @@ export function ChatRoom({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowArenaMenu(!showArenaMenu)}
-            className={`p-2 mb-0.5 rounded-lg transition-colors shrink-0 ${
-              showArenaMenu 
-                ? "bg-indigo-500/20 text-indigo-400" 
+            className={`p-2 mb-0.5 rounded-lg transition-colors shrink-0 ${showArenaMenu
+                ? "bg-indigo-500/20 text-indigo-400"
                 : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-            }`}
+              }`}
             title="Open Arena"
           >
             <Gamepad2 size={16} />
@@ -253,7 +293,7 @@ export function ChatRoom({
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => { 
+            onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 if (message.trim()) sendMessage();

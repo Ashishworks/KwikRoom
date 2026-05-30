@@ -61,7 +61,7 @@ export function createRoomEvent(
             }),
 
             {
-              ex: 60 * 60 * 24
+              ex: 60 * 60 * 12
             }
           )
 

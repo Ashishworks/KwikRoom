@@ -10,7 +10,9 @@ import { ChatRoom } from "./components/ChatRoom"
 import { TicTacToeArena } from "./games/TicTacToeArena"
 import { FourInARowArena } from "./games/FourInARowArena"
 import { WordGuessArena } from "./games/WordGuessArena"
-import { ScribbleArena } from "./games/ScribbleArena" 
+import { ScribbleArena } from "./games/ScribbleArena"
+import { SpyArena } from "./games/SpyArena" // 👉 NEW: Import The Spy Arena
+
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
   const [isPersistent, setIsPersistent] = useState(false)
@@ -196,7 +198,7 @@ export default function SidePanel() {
       if (message.type === "game-updated") {
         const { action, gameInstanceId, playersJoined, gameType } = message.payload;
 
-        const maxPlayers = (gameType === "word_guess" || gameType === "scribble_it") ? 7 : 2;
+        const maxPlayers = ["word_guess", "scribble_it", "the_spy"].includes(gameType) ? 7 : 2;
 
         // Expire the invite if someone leaves OR the room hits max capacity
         if (action === "leave" || (action === "start" && playersJoined?.length === maxPlayers)) {
@@ -317,9 +319,10 @@ export default function SidePanel() {
           <FourInARowArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         ) : activeGame.type === "word_guess" ? (
           <WordGuessArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
-        ) : (
-          // 👉 NEW: Route to Scribble
+        ) : activeGame.type === "scribble_it" ? (
           <ScribbleArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
+        ) : (
+          <SpyArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         )
       ) : (
         <ChatRoom
