@@ -12,6 +12,7 @@ import { FourInARowArena } from "./games/FourInARowArena"
 import { WordGuessArena } from "./games/WordGuessArena"
 import { ScribbleArena } from "./games/ScribbleArena"
 import { SpyArena } from "./games/SpyArena" // 👉 NEW: Import The Spy Arena
+import { TypingArena } from "./games/TypingArena" // 👉 NEW: Import Typing Battle Arena
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
@@ -321,8 +322,10 @@ export default function SidePanel() {
           <WordGuessArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         ) : activeGame.type === "scribble_it" ? (
           <ScribbleArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
-        ) : (
+        ) : activeGame.type === "the_spy" ? (
           <SpyArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
+        ) : (
+          <TypingArena isMuted={isMuted} roomCode={roomCode} username={username} activeGame={activeGame} setActiveGame={setActiveGame} />
         )
       ) : (
         <ChatRoom

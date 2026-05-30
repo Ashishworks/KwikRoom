@@ -1,6 +1,6 @@
-import { LogOut, Users, ChevronDown, Send, Copy, Check, Gamepad2 } from "lucide-react"
+import { LogOut, Users, ChevronDown, Send, Copy, Check, Gamepad2, Disc, Type, Pencil, Search, Keyboard } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { RefObject, useState } from "react"
+import { RefObject, useState, useRef, useEffect } from "react"
 import { Message } from "../types"
 import { MessageBubble } from "./MessageBubble"
 import { playSound } from "./sound"
@@ -31,9 +31,22 @@ export function ChatRoom({
 }: ChatRoomProps) {
 
   const [copied, setCopied] = useState(false)
-
-  // 👉 NEW: State to toggle the Arena games menu
   const [showArenaMenu, setShowArenaMenu] = useState(false)
+  
+  // 👉 NEW: Reference for the Arena Menu to handle outside clicks
+  const arenaMenuRef = useRef<HTMLDivElement>(null)
+
+  // 👉 NEW: Click outside listener to auto-close the menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showArenaMenu && arenaMenuRef.current && !arenaMenuRef.current.contains(e.target as Node)) {
+        setShowArenaMenu(false)
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showArenaMenu])
 
   const copyRoomCode = async () => {
     try {
@@ -45,8 +58,7 @@ export function ChatRoom({
     }
   }
 
-  // 👉 FIX: Update signature to include scribble_it
-  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess" | "scribble_it" | "the_spy") => {
+  const sendGameInvite = (gameType: "tic_tac_toe" | "four_in_a_row" | "word_guess" | "scribble_it" | "the_spy" | "typing_battle") => {
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
 
     chrome.runtime.sendMessage({
@@ -60,8 +72,7 @@ export function ChatRoom({
           gameType,
           gameInstanceId: gameId,
           playersJoined: [username],
-          // 👉 FIX: Spy allows up to 7 players!
-          maxPlayers: ["word_guess", "scribble_it", "the_spy"].includes(gameType) ? 7 : 2
+          maxPlayers: ["word_guess", "scribble_it", "the_spy", "typing_battle"].includes(gameType) ? 7 : 2
         }
       }
     })
@@ -161,7 +172,7 @@ export function ChatRoom({
                 firstLetter={firstLetter}
                 index={i}
                 roomCode={roomCode}
-                currentUsername={username} // 👉 FIX: Passed currentUsername down to resolve the missing prop
+                currentUsername={username}
               />
             )
           })}
@@ -189,106 +200,124 @@ export function ChatRoom({
       <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0">
         <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150 relative">
 
-          {/* 👉 NEW: ARENA POPOVER MENU */}
-          <AnimatePresence>
-            {showArenaMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute bottom-[120%] left-0 w-52 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/50 rounded-xl shadow-xl overflow-hidden z-50"
-              >
-                <div className="px-3 py-2 border-b border-zinc-800/50 bg-zinc-950/50">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Game</span>
-                </div>
-                
-                {/* Tic-Tac-Toe */}
-                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
-                  <button
-                    onClick={() => sendGameInvite("tic_tac_toe")}
-                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
-                  >
-                    <Gamepad2 size={14} />
-                    Tic-Tac-Toe
-                  </button>
-                  <div className="pr-3 pl-1 py-2.5">
-                    <InfoTooltip text={GAME_RULES.tic_tac_toe} position="right" />
+          {/* 👉 NEW: Ref Wrapper for outside clicks */}
+          <div className="relative shrink-0" ref={arenaMenuRef}>
+            
+            {/* ARENA POPOVER MENU */}
+            <AnimatePresence>
+              {showArenaMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute bottom-[120%] left-0 w-52 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/50 rounded-xl shadow-xl overflow-hidden z-50"
+                >
+                  <div className="px-3 py-2 border-b border-zinc-800/50 bg-zinc-950/50">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Game</span>
                   </div>
-                </div>
 
-                {/* Four in a Row */}
-                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
-                  <button
-                    onClick={() => sendGameInvite("four_in_a_row")}
-                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
-                  >
-                    <div className="w-3 h-3 rounded-full border-2 border-current" />
-                    Four in a Row
-                  </button>
-                  <div className="pr-3 pl-1 py-2.5">
-                    <InfoTooltip text={GAME_RULES.four_in_a_row} position="right" />
+                  {/* Tic-Tac-Toe */}
+                  <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                    <button
+                      onClick={() => sendGameInvite("tic_tac_toe")}
+                      className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                    >
+                      <Gamepad2 size={14} className="text-zinc-400 group-hover:text-indigo-200 transition-colors" />
+                      Tic-Tac-Toe
+                    </button>
+                    <div className="pr-3 pl-1 py-2.5">
+                      <InfoTooltip text={GAME_RULES.tic_tac_toe} position="right" />
+                    </div>
                   </div>
-                </div>
 
-                {/* Word Guess */}
-                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
-                  <button
-                    onClick={() => sendGameInvite("word_guess")}
-                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
-                  >
-                    <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">W</span>
-                    Word Guess
-                  </button>
-                  <div className="pr-3 pl-1 py-2.5">
-                    <InfoTooltip text={GAME_RULES.word_guess} position="right" />
+                  {/* Four in a Row */}
+                  <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                    <button
+                      onClick={() => sendGameInvite("four_in_a_row")}
+                      className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                    >
+                      <Disc size={14} className="text-zinc-400 group-hover:text-indigo-200 transition-colors" />
+                      Four in a Row
+                    </button>
+                    <div className="pr-3 pl-1 py-2.5">
+                      <InfoTooltip text={GAME_RULES.four_in_a_row} position="right" />
+                    </div>
                   </div>
-                </div>
 
-                {/* Scribble */}
-                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
-                  <button
-                    onClick={() => sendGameInvite("scribble_it")}
-                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
-                  >
-                    <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">✎</span>
-                    Scribble
-                  </button>
-                  <div className="pr-3 pl-1 py-2.5">
-                    <InfoTooltip text={GAME_RULES.scribble_it} position="right" />
+                  {/* Word Guess */}
+                  <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                    <button
+                      onClick={() => sendGameInvite("word_guess")}
+                      className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                    >
+                      <Type size={14} className="text-zinc-400 group-hover:text-indigo-200 transition-colors" />
+                      Word Guess
+                    </button>
+                    <div className="pr-3 pl-1 py-2.5">
+                      <InfoTooltip text={GAME_RULES.word_guess} position="right" />
+                    </div>
                   </div>
-                </div>
 
-                {/* The Spy */}
-                <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors">
-                  <button
-                    onClick={() => sendGameInvite("the_spy")}
-                    className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
-                  >
-                    <span className="font-serif font-bold text-sm leading-none border border-current px-1 rounded-sm">🕵️‍♂️</span>
-                    The Spy
-                  </button>
-                  <div className="pr-3 pl-1 py-2.5">
-                    <InfoTooltip text={GAME_RULES.the_spy} position="right" />
+                  {/* Scribble */}
+                  <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                    <button
+                      onClick={() => sendGameInvite("scribble_it")}
+                      className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                    >
+                      <Pencil size={14} className="text-zinc-400 group-hover:text-indigo-200 transition-colors" />
+                      Scribble
+                    </button>
+                    <div className="pr-3 pl-1 py-2.5">
+                      <InfoTooltip text={GAME_RULES.scribble_it} position="right" />
+                    </div>
                   </div>
-                </div>
 
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  {/* The Spy */}
+                  <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors border-b border-zinc-800/30">
+                    <button
+                      onClick={() => sendGameInvite("the_spy")}
+                      className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                    >
+                      <Search size={14} className="text-zinc-400 group-hover:text-indigo-200 transition-colors" />
+                      The Spy
+                    </button>
+                    <div className="pr-3 pl-1 py-2.5">
+                      <InfoTooltip text={GAME_RULES.the_spy} position="right" />
+                    </div>
+                  </div>
+                  
+                  {/* Typing Battle */}
+                  <div className="flex items-center w-full group hover:bg-indigo-600 transition-colors">
+                    <button
+                      onClick={() => sendGameInvite("typing_battle")}
+                      className="flex-1 text-left px-3 py-2.5 text-xs font-medium text-zinc-300 group-hover:text-white flex items-center gap-2"
+                    >
+                      <Keyboard size={14} className="text-zinc-400 group-hover:text-indigo-200 transition-colors" />
+                      Typing Battle
+                    </button>
+                    <div className="pr-3 pl-1 py-2.5">
+                      <InfoTooltip text={GAME_RULES.typing_battle} />
+                    </div>
+                  </div>
 
-          {/* 👉 NEW: ARENA TRIGGER BUTTON */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowArenaMenu(!showArenaMenu)}
-            className={`p-2 mb-0.5 rounded-lg transition-colors shrink-0 ${showArenaMenu
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ARENA TRIGGER BUTTON */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowArenaMenu(!showArenaMenu)}
+              className={`p-2 mb-0.5 rounded-lg transition-colors ${showArenaMenu
                 ? "bg-indigo-500/20 text-indigo-400"
                 : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-              }`}
-            title="Open Arena"
-          >
-            <Gamepad2 size={16} />
-          </motion.button>
+                }`}
+              title="Open Arena"
+            >
+              <Gamepad2 size={16} />
+            </motion.button>
+          </div>
 
           <textarea
             value={message}
