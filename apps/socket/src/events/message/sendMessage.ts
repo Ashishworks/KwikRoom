@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io"
 import { prisma } from "@kwikroom/db"
 import { redis } from "@kwikroom/redis"
+import { generateKiwiResponse } from "../../services/ai/kiwiService" // 👉 NEW: Import the function to generate Kiwi's response
 
 export function sendMessageEvent(
   io: Server,
@@ -12,18 +13,16 @@ export function sendMessageEvent(
       room,
       username,
       message,
-      type,       // 👉 NEW: Extract type
-      metadata    // 👉 NEW: Extract metadata
+      type,       
+      metadata    
     }) => {
       try {
         // ==========================================
-        // 👉 NEW: ARENA GATEKEEPER
+        // ARENA GATEKEEPER
         // ==========================================
-        // If this is a game-related message, broadcast it instantly and STOP.
-        // It bypasses both Redis and Prisma entirely.
         if (type === "game_invite" || type === "game_state") {
           io.to(room).emit("message", {
-            id: Date.now(), // Transient ID
+            id: Date.now(), 
             username,
             text: message || "", 
             createdAt: new Date(),
@@ -32,6 +31,46 @@ export function sendMessageEvent(
           })
           return
         }
+
+        // ==========================================
+        // 👉 NEW: KIWI AI GATEKEEPER
+        // ==========================================
+        // Check if it's a normal chat message and contains "@kiwi"
+        const isTextMsg = !type || type === "chat" || type === "text";
+        const isAiInteraction = isTextMsg && typeof message === "string" && message.toLowerCase().includes("@kiwi");
+
+        if (isAiInteraction) {
+          // 1. Broadcast the user's prompt instantly (Ephemeral - no DB save)
+          io.to(room).emit("message", {
+            id: Date.now(),
+            username,
+            text: message,
+            createdAt: new Date(),
+            type: "chat",
+            metadata: { ...metadata, isAiInteraction: true }
+          })
+
+          // 2. Fetch Kiwi's reply asynchronously
+          try {
+            const kiwiReply = await generateKiwiResponse(message);
+            
+            // 3. Broadcast Kiwi's reply (Ephemeral - no DB save)
+            io.to(room).emit("message", {
+              id: Date.now() + 1, // Ensure distinct ID
+              username: "Kiwi", // AI Bot Name
+              text: kiwiReply,
+              createdAt: new Date(),
+              type: "chat",
+              metadata: { isBot: true, isAiInteraction: true } // Flags for frontend styling
+            })
+          } catch (err) {
+            console.error("Kiwi generation failed:", err)
+          }
+
+          // 4. STOP EXECUTION! This prevents the message from hitting Prisma or Redis.
+          return
+        }
+
 
         // ==========================================
         // EXISTING CHAT LOGIC BELOW
@@ -50,7 +89,7 @@ export function sendMessageEvent(
               username,
               text: message,
               createdAt: new Date(),
-              type: "chat" // Default to chat
+              type: "chat" 
             }
           )
           return
@@ -74,7 +113,7 @@ export function sendMessageEvent(
             username: savedMessage.senderName,
             text: savedMessage.content,
             createdAt: savedMessage.createdAt,
-            type: "chat" // Default to chat
+            type: "chat" 
           }
         )
 

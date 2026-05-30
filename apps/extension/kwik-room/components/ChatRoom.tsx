@@ -328,7 +328,7 @@ export function ChatRoom({
                 if (message.trim()) sendMessage();
               }
             }}
-            placeholder="Type a message..."
+            placeholder="Say hello, or chat with @kiwi AI..."
             rows={1}
             className="flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-600 text-zinc-200 resize-none min-h-[36px] max-h-32 overflow-y-auto scrollbar-none"
           />

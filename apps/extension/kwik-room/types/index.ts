@@ -12,5 +12,6 @@ export type Message = {
     maxPlayers?: number;
     gameState?: any; 
     expired?: boolean;
+    isBot?: boolean; 
   };
 };

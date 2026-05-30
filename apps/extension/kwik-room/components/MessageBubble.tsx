@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react" // 👉 NEW: Import hooks
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Gamepad2 } from "lucide-react"
+import { Bird, Gamepad2, Origami, Sparkles } from "lucide-react" // 👉 NEW: Imported Sparkles for Kiwi
 import { Message } from "../types"
 
 interface MessageBubbleProps {
@@ -16,7 +16,7 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLetter, index, currentUsername, roomCode }: MessageBubbleProps) {
 
-    // 👉 NEW: Local 1-minute expiration timer
+    // Local 1-minute expiration timer for games
     const [localExpired, setLocalExpired] = useState(false)
 
     useEffect(() => {
@@ -37,7 +37,6 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
         const players = msg.metadata?.playersJoined || []
         const maxPlayers = msg.metadata?.maxPlayers || 2
 
-        // 👉 NEW: Global state from sidepanel OR local 1-minute timer
         const isExpired = msg.metadata?.expired || localExpired
         const isFull = players.length >= maxPlayers
         const alreadyJoined = players.includes(currentUsername)
@@ -66,7 +65,7 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
                                     ? "Word Guess"
                                     : msg.metadata?.gameType === "scribble_it"
                                         ? "Scribble"
-                                        : msg.metadata?.gameType === "the_spy" // 👉 FIX
+                                        : msg.metadata?.gameType === "the_spy"
                                             ? "The Spy"
                                             : "a game"}!
                     </p>
@@ -111,6 +110,11 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
     }
 
     // ==========================================
+    // 👉 NEW: KIWI AI DETECTION LOGIC
+    // ==========================================
+    const isKiwi = (msg.metadata?.isBot || msg.username === "Kiwi") && !isOwn;
+
+    // ==========================================
     // EXISTING STANDARD CHAT BUBBLE LOGIC BELOW
     // ==========================================
     return (
@@ -118,14 +122,25 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`w-full flex items-end gap-2 ${isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"} ${!isSameUserAsPrev && index !== 0 ? "pt-2.5" : ""}`}
+            // 👉 FIX: Changed 'items-end' to 'items-start' to move the avatar to the top
+            className={`w-full flex items-start gap-2 ${isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"} ${!isSameUserAsPrev && index !== 0 ? "pt-2.5" : ""}`}
         >
             {!isOwn && !isSystem && (
-                <div className="w-5 h-5 shrink-0 flex items-center justify-center mb-0.5">
+                // 👉 FIX: Replaced mb-0.5 with mt-0.5 so it aligns perfectly with the text
+                <div className="w-7 h-7 shrink-0 flex items-center justify-center mt-0.5">
                     {!isSameUserAsPrev ? (
-                        <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-[10px] font-bold flex items-center justify-center border border-indigo-500/10">
-                            {firstLetter}
-                        </div>
+                        isKiwi ? (
+                            // 👉 KIWI AVATAR
+                            <div className="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400/90 flex items-center justify-center border border-teal-500/20">
+                                {/* 👉 FIX: Scaled Bird down to 12 so it fits the 20px bubble */}
+                                <Bird size={16} strokeWidth={1.5} />
+                            </div>
+                        ) : (
+                            // 👉 STANDARD USER AVATAR
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-[10px] font-bold flex items-center justify-center border border-indigo-500/10">
+                                {firstLetter}
+                            </div>
+                        )
                     ) : (
                         <div className="w-5" />
                     )}
@@ -139,17 +154,29 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
             ) : (
                 <div className={`flex flex-col max-w-[80%] min-w-0 ${isOwn ? "items-end" : "items-start"}`}>
                     {!isSameUserAsPrev && (
-                        <div className="mb-0.5 px-1">
-                            <span className={`text-[10px] font-semibold tracking-tight ${isOwn ? "text-zinc-500" : "text-indigo-400"}`}>
-                                {isOwn ? "You" : msg.username}
+                        // 👉 FIX: Added 'flex items-center h-5 mt-0.5' to match the avatar's exact height and line
+                        <div className="flex items-center h-5 mb-0.5 px-1 mt-0.5">
+                            <span className={`text-[14px] font-semibold tracking-tight ${isOwn ? "text-zinc-500" : isKiwi ? "text-teal-400/80" : "text-indigo-400"}`}>
+                                {isOwn ? "You" : isKiwi ? "Kiwi" : msg.username}
                             </span>
                         </div>
                     )}
 
-                    <div className={`px-3 py-2 rounded-2xl text-[13px] relative w-full ${isOwn ? "bg-indigo-600 text-white rounded-br-sm" : "bg-zinc-900 text-zinc-100 border border-zinc-800/60 rounded-bl-sm"} ${isSameUserAsPrev ? "!rounded-2xl" : ""}`}>
+                    {/* 👉 BUBBLE STYLING */}
+                    <div className={`px-3 py-2 rounded-2xl text-[13px] relative w-full 
+                        ${isOwn 
+                            ? "bg-indigo-600 text-white rounded-br-sm" 
+                            : isKiwi 
+                                ? "bg-zinc-900/50 text-zinc-200 border border-teal-500/10 rounded-bl-sm shadow-none"
+                                : "bg-zinc-900 text-zinc-100 border border-zinc-800/60 rounded-bl-sm"
+                        } 
+                        ${isSameUserAsPrev ? "!rounded-2xl" : ""}`}
+                    >
                         <div className="flex flex-col gap-0.5">
-                            <p className="whitespace-pre-wrap break-words leading-relaxed pr-1 text-zinc-100">{msg.text}</p>
-                            <span className={`text-[8px] font-medium mt-1 block text-right ${isOwn ? "text-indigo-200/60" : "text-zinc-500"}`}>
+                            <p className="whitespace-pre-wrap break-words leading-relaxed pr-1">
+                                {msg.text}
+                            </p>
+                            <span className={`text-[8px] font-medium mt-1 block text-right ${isOwn ? "text-indigo-200/60" : isKiwi ? "text-teal-400/40" : "text-zinc-500"}`}>
                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                             </span>
                         </div>
