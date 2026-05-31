@@ -1,6 +1,6 @@
-import { LogOut, Users, ChevronDown, Send, Copy, Check, Gamepad2, Disc, Type, Pencil, Search, Keyboard } from "lucide-react"
+import { LogOut, Users, ChevronDown, Send, Copy, Check, Gamepad2, Disc, Type, Pencil, Search, Keyboard, AtSign } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { RefObject, useState, useRef, useEffect } from "react"
+import { RefObject, useState, useRef, useEffect, useMemo } from "react"
 import { Message } from "../types"
 import { MessageBubble } from "./MessageBubble"
 import { playSound } from "./sound"
@@ -33,10 +33,28 @@ export function ChatRoom({
   const [copied, setCopied] = useState(false)
   const [showArenaMenu, setShowArenaMenu] = useState(false)
   
-  // 👉 NEW: Reference for the Arena Menu to handle outside clicks
   const arenaMenuRef = useRef<HTMLDivElement>(null)
 
-  // 👉 NEW: Click outside listener to auto-close the menu
+  // ==========================================
+  // 👉 NEW: Autocomplete State
+  // ==========================================
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestionSearch, setSuggestionSearch] = useState("")
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // Merge "kiwi" with online users (excluding self) and remove duplicates
+  const allMentionables = useMemo(() => {
+    const list = ["kiwi", ...onlineUsers.filter(user => user !== username)]
+    return Array.from(new Set(list)) 
+  }, [onlineUsers, username])
+
+  // Filter based on what the user typed after the '@'
+  const filteredSuggestions = useMemo(() => {
+    if (!suggestionSearch) return allMentionables
+    return allMentionables.filter(item => item.toLowerCase().includes(suggestionSearch))
+  }, [allMentionables, suggestionSearch])
+
+  // Click outside listener to auto-close the Arena menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (showArenaMenu && arenaMenuRef.current && !arenaMenuRef.current.contains(e.target as Node)) {
@@ -47,6 +65,34 @@ export function ChatRoom({
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showArenaMenu])
+
+  // 👉 NEW: Input change handler for parsing '@' mentions
+  const handleInputChange = (text: string) => {
+    setMessage(text)
+
+    const lastAtIdx = text.lastIndexOf("@")
+    if (lastAtIdx !== -1) {
+      const textAfterAt = text.substring(lastAtIdx + 1)
+      // If there's no space after the '@', we are currently searching for a mention
+      if (!textAfterAt.includes(" ")) {
+        setShowSuggestions(true)
+        setSuggestionSearch(textAfterAt.toLowerCase())
+        setSelectedIndex(0) // Reset highlight
+        return
+      }
+    }
+    setShowSuggestions(false)
+  }
+
+  // 👉 NEW: Action to insert the chosen name into the textarea
+  const completeMention = (chosenName: string) => {
+    const lastAtIdx = message.lastIndexOf("@")
+    if (lastAtIdx !== -1) {
+      const prefix = message.substring(0, lastAtIdx)
+      setMessage(`${prefix}@${chosenName} `)
+    }
+    setShowSuggestions(false)
+  }
 
   const copyRoomCode = async () => {
     try {
@@ -200,10 +246,47 @@ export function ChatRoom({
       <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0">
         <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150 relative">
 
-          {/* 👉 NEW: Ref Wrapper for outside clicks */}
+          {/* ========================================== */}
+          {/* 👉 NEW: AUTOCOMPLETE FLOATING OVERLAY PANEL */}
+          {/* ========================================== */}
+          <AnimatePresence>
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                className="absolute bottom-[115%] left-10 w-48 bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto z-50 flex flex-col p-1 scrollbar-none"
+              >
+                <div className="px-2 py-1 flex items-center gap-1 border-b border-zinc-800/50 mb-1 text-zinc-500 bg-zinc-950/30">
+                  <AtSign size={10} className="text-zinc-600" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Mention</span>
+                </div>
+                {filteredSuggestions.map((item, idx) => (
+                  <button
+                    key={item}
+                    onClick={() => completeMention(item)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center justify-between group ${
+                      idx === selectedIndex 
+                        ? "bg-indigo-600 text-white" 
+                        : "text-zinc-400 hover:bg-zinc-800/60"
+                    }`}
+                  >
+                    <span className="truncate">@{item}</span>
+                    {item === "kiwi" && (
+                      <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${idx === selectedIndex ? "bg-indigo-500 text-indigo-100" : "bg-teal-500/10 text-teal-400 border border-teal-500/20"}`}>
+                        AI
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+
           <div className="relative shrink-0" ref={arenaMenuRef}>
             
-            {/* ARENA POPOVER MENU */}
             <AnimatePresence>
               {showArenaMenu && (
                 <motion.div
@@ -304,7 +387,6 @@ export function ChatRoom({
               )}
             </AnimatePresence>
 
-            {/* ARENA TRIGGER BUTTON */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -321,11 +403,39 @@ export function ChatRoom({
 
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)} // 👉 FIX: Bound to new parser
             onKeyDown={(e) => {
+              // 👉 NEW: Autocomplete Keyboard Navigation Handling
+              if (showSuggestions && filteredSuggestions.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault()
+                  setSelectedIndex((prev) => (prev + 1) % filteredSuggestions.length)
+                  return
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault()
+                  setSelectedIndex((prev) => (prev - 1 + filteredSuggestions.length) % filteredSuggestions.length)
+                  return
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault()
+                  completeMention(filteredSuggestions[selectedIndex])
+                  return
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault()
+                  setShowSuggestions(false)
+                  return
+                }
+              }
+
+              // Standard submission behavior
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (message.trim()) sendMessage();
+                if (message.trim()) {
+                  sendMessage()
+                  setShowSuggestions(false)
+                }
               }
             }}
             placeholder="Say hello, or chat with @kiwi AI..."
@@ -337,7 +447,10 @@ export function ChatRoom({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => {
-              if (message.trim()) sendMessage();
+              if (message.trim()) {
+                sendMessage()
+                setShowSuggestions(false)
+              }
             }}
             className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 mb-0.5 rounded-lg transition-colors shrink-0"
           >

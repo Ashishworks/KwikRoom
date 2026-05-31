@@ -13,5 +13,6 @@ export type Message = {
     gameState?: any; 
     expired?: boolean;
     isBot?: boolean; 
+    isAiInteraction?: boolean;
   };
 };

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Bird, Gamepad2, Origami, Sparkles } from "lucide-react" // 👉 NEW: Imported Sparkles for Kiwi
+import { Bird, Gamepad2 } from "lucide-react"
 import { Message } from "../types"
+import { playSound } from "./sound"
 
 interface MessageBubbleProps {
     msg: Message
@@ -32,6 +33,20 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
             }
         }
     }, [msg, localExpired])
+
+    // ==========================================
+    // 👉 USER MENTION LOGIC
+    // ==========================================
+    // Check if the current user was explicitly mentioned in this message
+    const isMentioningMe = !isOwn && !isSystem && msg.text?.toLowerCase().includes(`@${currentUsername.toLowerCase()}`);
+
+    useEffect(() => {
+        // Trigger a specific "success" or "chime" sound when the user is mentioned
+        if (isMentioningMe) {
+            playSound("success", false)
+        }
+    }, [isMentioningMe])
+
 
     if (msg.type === "game_invite") {
         const players = msg.metadata?.playersJoined || []
@@ -110,7 +125,7 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
     }
 
     // ==========================================
-    // 👉 NEW: KIWI AI DETECTION LOGIC
+    // KIWI AI DETECTION LOGIC
     // ==========================================
     const isKiwi = (msg.metadata?.isBot || msg.username === "Kiwi") && !isOwn;
 
@@ -122,22 +137,17 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            // 👉 FIX: Changed 'items-end' to 'items-start' to move the avatar to the top
             className={`w-full flex items-start gap-2 ${isSystem ? "justify-center py-2" : isOwn ? "justify-end" : "justify-start"} ${!isSameUserAsPrev && index !== 0 ? "pt-2.5" : ""}`}
         >
             {!isOwn && !isSystem && (
-                // 👉 FIX: Replaced mb-0.5 with mt-0.5 so it aligns perfectly with the text
                 <div className="w-7 h-7 shrink-0 flex items-center justify-center mt-0.5">
                     {!isSameUserAsPrev ? (
                         isKiwi ? (
-                            // 👉 KIWI AVATAR
                             <div className="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400/90 flex items-center justify-center border border-teal-500/20">
-                                {/* 👉 FIX: Scaled Bird down to 12 so it fits the 20px bubble */}
                                 <Bird size={16} strokeWidth={1.5} />
                             </div>
                         ) : (
-                            // 👉 STANDARD USER AVATAR
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-[10px] font-bold flex items-center justify-center border border-indigo-500/10">
+                            <div className="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-300 text-[11px] font-medium flex items-center justify-center border border-indigo-500/20">
                                 {firstLetter}
                             </div>
                         )
@@ -154,21 +164,27 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
             ) : (
                 <div className={`flex flex-col max-w-[80%] min-w-0 ${isOwn ? "items-end" : "items-start"}`}>
                     {!isSameUserAsPrev && (
-                        // 👉 FIX: Added 'flex items-center h-5 mt-0.5' to match the avatar's exact height and line
-                        <div className="flex items-center h-5 mb-0.5 px-1 mt-0.5">
+                        <div className="flex items-center gap-1.5 h-5 mb-0.5 px-1 mt-0.5">
                             <span className={`text-[12px] font-semibold tracking-tight ${isOwn ? "text-zinc-500" : isKiwi ? "text-teal-400/80" : "text-indigo-400"}`}>
                                 {isOwn ? "You" : isKiwi ? "Kiwi" : msg.username}
                             </span>
+
+                            {/* 👉 "Mentioned You" Badge next to the user's name */}
+                            {isMentioningMe && (
+                                <span className="text-[8px] font-bold uppercase tracking-wider text-rose-400  border border-rose-500/20 px-1.5 py-0.5 rounded-md leading-none">
+                                    Mentioned You
+                                </span>
+                            )}
                         </div>
                     )}
 
-                    {/* 👉 BUBBLE STYLING */}
-                    <div className={`px-3 py-2 rounded-2xl text-[13px] relative w-full 
-                        ${isOwn 
-                            ? "bg-indigo-600 text-white rounded-br-sm" 
-                            : isKiwi 
+                    {/* 👉 BUBBLE STYLING: Applies Soft Rose glow if you are mentioned */}
+                    <div className={`px-3 py-2 rounded-2xl text-[13px] relative w-full transition-all duration-300
+                        ${isOwn
+                            ? "bg-indigo-600 text-white rounded-br-sm"
+                            : isKiwi
                                 ? "bg-zinc-900/50 text-zinc-200 border border-teal-500/10 rounded-bl-sm shadow-none"
-                                : "bg-zinc-900 text-zinc-100 border border-zinc-800/60 rounded-bl-sm"
+                                : "bg-zinc-900 text-zinc-100 border rounded-bl-sm border-zinc-800/60 "
                         } 
                         ${isSameUserAsPrev ? "!rounded-2xl" : ""}`}
                     >
