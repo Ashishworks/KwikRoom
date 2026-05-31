@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io"
 import { prisma } from "@kwikroom/db"
 import { redis } from "@kwikroom/redis"
-import { generateKiwiResponse } from "../../services/ai/kiwiService" // Imported function to generate Kiwi's response
+import { generateKiwiResponse } from "../../services/ai/kiwiService"
 
 export function sendMessageEvent(
   io: Server,
@@ -32,56 +32,86 @@ export function sendMessageEvent(
           return
         }
 
+        // 👉 NEW: Check if the room is temporary upfront so we know if we should save AI messages
+        const tempRoom = await redis.exists(`room:${room}`)
+
         // ==========================================
         // KIWI AI GATEKEEPER
         // ==========================================
-        // Check if it's a normal chat message and contains "@kiwi"
         const isTextMsg = !type || type === "chat" || type === "text";
         const isAiInteraction = isTextMsg && typeof message === "string" && message.toLowerCase().includes("@kiwi");
 
         if (isAiInteraction) {
-          // 1. Broadcast the user's prompt instantly (Ephemeral - no DB save)
+          let promptId: string | number = Date.now();
+          let kiwiId: string | number = Date.now() + 1;
+          let promptCreatedAt = new Date();
+
+          // 1. SAVE USER PROMPT TO DB (If persistent room)
+          if (!tempRoom) {
+            const savedPrompt = await prisma.message.create({
+              data: {
+                roomCode: room,
+                senderId: socket.id,
+                senderName: username,
+                content: message
+              }
+            })
+            promptId = Number(savedPrompt.id)
+            promptCreatedAt = savedPrompt.createdAt
+          }
+
+          // 2. Broadcast the user's prompt instantly
           io.to(room).emit("message", {
-            id: Date.now(),
+            id: promptId,
             username,
             text: message,
-            createdAt: new Date(),
+            createdAt: promptCreatedAt,
             type: "chat",
             metadata: { ...metadata, isAiInteraction: true }
           })
 
-          // 2. Fetch Kiwi's reply asynchronously
+          // 3. Fetch Kiwi's reply asynchronously
           try {
-            // 👉 FIX: Passed 'room' as the second argument so Kiwi can track conversational memory per room
             const kiwiReply = await generateKiwiResponse(message, room);
+            let kiwiCreatedAt = new Date();
             
-            // 3. Broadcast Kiwi's reply (Ephemeral - no DB save)
+            // 4. SAVE KIWI'S REPLY TO DB (If persistent room)
+            if (!tempRoom) {
+              const savedKiwi = await prisma.message.create({
+                data: {
+                  roomCode: room,
+                  senderId: "kiwi-ai-bot", // Static ID for the bot
+                  senderName: "Kiwi",
+                  content: kiwiReply
+                }
+              })
+              kiwiId = Number(savedKiwi.id)
+              kiwiCreatedAt = savedKiwi.createdAt
+            }
+
+            // 5. Broadcast Kiwi's reply
             io.to(room).emit("message", {
-              id: Date.now() + 1, // Ensure distinct ID
-              username: "Kiwi", // AI Bot Name
+              id: kiwiId,
+              username: "Kiwi",
               text: kiwiReply,
-              createdAt: new Date(),
+              createdAt: kiwiCreatedAt,
               type: "chat",
-              metadata: { isBot: true, isAiInteraction: true } // Flags for frontend styling
+              metadata: { isBot: true, isAiInteraction: true }
             })
           } catch (err) {
             console.error("Kiwi generation failed:", err)
           }
 
-          // 4. STOP EXECUTION! This prevents the message from hitting Prisma or Redis.
+          // 6. STOP EXECUTION!
           return
         }
 
 
         // ==========================================
-        // EXISTING CHAT LOGIC BELOW
+        // EXISTING NORMAL CHAT LOGIC BELOW
         // ==========================================
         
-        // CHECK IF ROOM IS TEMP
-        const tempRoom = await redis.exists(`room:${room}`)
-
-        // TEMPORARY ROOM
-        // NO DB STORAGE
+        // TEMPORARY ROOM (NO DB STORAGE)
         if (tempRoom) {
           io.to(room).emit(
             "message",
@@ -96,7 +126,7 @@ export function sendMessageEvent(
           return
         }
 
-        // SAVE PERSISTENT MESSAGE
+        // SAVE PERSISTENT NORMAL MESSAGE
         const savedMessage = await prisma.message.create({
           data: {
             roomCode: room,
@@ -106,7 +136,7 @@ export function sendMessageEvent(
           }
         })
 
-        // EMIT SAVED MESSAGE
+        // EMIT SAVED NORMAL MESSAGE
         io.to(room).emit(
           "message",
           {
@@ -117,8 +147,6 @@ export function sendMessageEvent(
             type: "chat" 
           }
         )
-
-        console.log(`${username}: ${message}`)
 
       } catch (error) {
         console.log(error)
