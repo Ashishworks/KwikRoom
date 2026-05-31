@@ -53,6 +53,16 @@ io.on(
     // 👉 Register the Arena events for Tic-Tac-Toe
     gameEvents(io, socket)
 
+    // ==========================================
+    // 👉 NEW: TYPING INDICATOR 
+    // Broadcast typing status to the room
+    // ==========================================
+    socket.on("typing", (data) => {
+      const { room, username, isTyping } = data;
+      // Emit to everyone in the room EXCEPT the sender
+      socket.to(room).emit("user_typing", { username, isTyping });
+    });
+
     socket.on(
       "disconnect",
       () => {

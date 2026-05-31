@@ -6,7 +6,7 @@ import { io } from "socket.io-client"
 
 // prod check https://kwikroom-socket.onrender.com/ 
 // local check http://127.0.0.1:4000
-const socket = io("https://kwikroom-socket.onrender.com", {
+const socket = io("http://127.0.0.1:4000", {
   transports: ["websocket"]
 })
 
@@ -82,6 +82,16 @@ socket.on("error", (error) => {
 })
 
 // ==========================================
+// 👉 NEW: TYPING INDICATOR (Server to UI)
+// ==========================================
+socket.on("user_typing", (data) => {
+  chrome.runtime.sendMessage({
+    type: "user_typing",
+    payload: data
+  })
+})
+
+// ==========================================
 // 👉 NEW: ARENA SOCKET EVENTS (Server to UI)
 // ==========================================
 socket.on("game-updated", (data) => {
@@ -135,6 +145,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // LOAD OLDER MESSAGES
   if (message.type === "load-more-messages") {
     socket.emit("load-more-messages", message.payload)
+  }
+
+  // ==========================================
+  // 👉 NEW: TYPING INDICATOR (UI to Server)
+  // ==========================================
+  if (message.type === "typing") {
+    socket.emit("typing", message.payload)
   }
 
   // ==========================================

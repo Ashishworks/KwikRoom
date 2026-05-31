@@ -36,11 +36,17 @@ export function ChatRoom({
   const arenaMenuRef = useRef<HTMLDivElement>(null)
 
   // ==========================================
-  // 👉 NEW: Autocomplete State
+  // 👉 Autocomplete State
   // ==========================================
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestionSearch, setSuggestionSearch] = useState("")
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // ==========================================
+  // 👉 Typing Indicator State & Refs
+  // ==========================================
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Merge "kiwi" with online users (excluding self) and remove duplicates
   const allMentionables = useMemo(() => {
@@ -66,25 +72,80 @@ export function ChatRoom({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showArenaMenu])
 
-  // 👉 NEW: Input change handler for parsing '@' mentions
+  // Listen for typing events from background.ts/sockets
+  useEffect(() => {
+    const handleRuntimeMessage = (msg: any) => {
+      if (msg.type === "user_typing") {
+        const { username: typingUser, isTyping } = msg.payload
+        
+        // Don't show our own typing indicator
+        if (typingUser === username) return
+
+        setTypingUsers((prev) => {
+          if (isTyping) {
+            return prev.includes(typingUser) ? prev : [...prev, typingUser]
+          } else {
+            return prev.filter((user) => user !== typingUser)
+          }
+        })
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
+  }, [username])
+
+  // Helper to emit our own typing status
+  const emitTyping = (isTyping: boolean) => {
+    chrome.runtime.sendMessage({
+      type: "typing", 
+      payload: { room: roomCode, username, isTyping }
+    })
+  }
+
+  // Input change handler for typing indicator AND parsing '@'
   const handleInputChange = (text: string) => {
     setMessage(text)
 
+    // --- Typing Indicator Logic ---
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    if (text.trim() === "") {
+      emitTyping(false) // Instantly stop if cleared
+    } else {
+      emitTyping(true)
+      // Auto-stop typing if paused for 1.5s
+      typingTimeoutRef.current = setTimeout(() => {
+        emitTyping(false)
+      }, 1500)
+    }
+
+    // --- Autocomplete Logic ---
     const lastAtIdx = text.lastIndexOf("@")
     if (lastAtIdx !== -1) {
       const textAfterAt = text.substring(lastAtIdx + 1)
-      // If there's no space after the '@', we are currently searching for a mention
       if (!textAfterAt.includes(" ")) {
         setShowSuggestions(true)
         setSuggestionSearch(textAfterAt.toLowerCase())
-        setSelectedIndex(0) // Reset highlight
+        setSelectedIndex(0)
         return
       }
     }
     setShowSuggestions(false)
   }
 
-  // 👉 NEW: Action to insert the chosen name into the textarea
+  // Centralized send handler to clear typing status
+  const handleSend = () => {
+    if (message.trim()) {
+      sendMessage()
+      setShowSuggestions(false)
+      emitTyping(false)
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    }
+  }
+
   const completeMention = (chosenName: string) => {
     const lastAtIdx = message.lastIndexOf("@")
     if (lastAtIdx !== -1) {
@@ -126,6 +187,31 @@ export function ChatRoom({
     setShowArenaMenu(false)
     scrollToBottom()
     playSound("send", isMuted)
+  }
+
+  // 👉 UPDATED: Render helper for proper grammar & animated dots (FIXED SPACES)
+  const renderTypingState = () => {
+    if (typingUsers.length === 0) return null
+
+    let text
+    if (typingUsers.length === 1) {
+      text = <><span className="font-semibold text-zinc-300 pr-1">{typingUsers[0]}</span>{"is typing"}</>
+    } else if (typingUsers.length === 2) {
+      text = <><span className="font-semibold text-zinc-300 pr-1">{typingUsers[0]}</span>{" and "}<span className="font-semibold text-zinc-300 pl-1 pr-1">{typingUsers[1]}</span>{" are typing"}</>
+    } else {
+      text = <><span className="font-semibold text-zinc-300 pr-1">{typingUsers[0]}</span>{" and "}<span className="font-semibold text-zinc-300 pl-1">{typingUsers.length - 1} others</span>{" are typing"}</>
+    }
+
+    return (
+      <div className="flex items-center">
+        {text}
+        <span className="inline-flex tracking-widest ml-0.5 w-3">
+          <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1.5, times: [0, 0.5, 1], delay: 0 }}>.</motion.span>
+          <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1.5, times: [0, 0.5, 1], delay: 0.3 }}>.</motion.span>
+          <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1.5, times: [0, 0.5, 1], delay: 0.6 }}>.</motion.span>
+        </span>
+      </div>
+    )
   }
 
   return (
@@ -199,7 +285,7 @@ export function ChatRoom({
         </div>
       </div>
 
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-gradient-to-b from-zinc-950 to-zinc-900/20">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-gradient-to-b from-zinc-950 to-zinc-900/20 relative">
         <AnimatePresence>
           {messages.map((msg, i) => {
             const isOwn = msg.username === username
@@ -236,19 +322,34 @@ export function ChatRoom({
               scrollToBottom()
               playSound("swoosh", isMuted)
             }}
-            className="absolute bottom-20 right-4 p-2 bg-zinc-800/30 border border-zinc-700/40 text-zinc-400 backdrop-blur-md shadow-lg hover:bg-zinc-800/95 hover:border-zinc-600 hover:text-white hover:shadow-xl rounded-full transition-all duration-300 ease-out z-20"
+            className="absolute bottom-24 right-4 p-2 bg-zinc-800/30 border border-zinc-700/40 text-zinc-400 backdrop-blur-md shadow-lg hover:bg-zinc-800/95 hover:border-zinc-600 hover:text-white hover:shadow-xl rounded-full transition-all duration-300 ease-out z-20"
           >
             <ChevronDown size={20} />
           </motion.button>
         )}
       </AnimatePresence>
 
-      <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0">
+      <div className="border-t border-zinc-900 p-3 bg-zinc-950/80 backdrop-blur-xl sticky bottom-0 relative z-20">
+        
+        {/* 👉 UPDATED: Fixed UI Position & Pill Background */}
+        <AnimatePresence>
+          {typingUsers.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute bottom-full left-4 mb-2 pointer-events-none shadow-xl"
+            >
+              <div className="flex items-center text-[11px] text-zinc-400 bg-zinc-900/95 border border-zinc-800/80 px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md">
+                {renderTypingState()}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-end gap-1.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl p-1 focus-within:border-indigo-500/50 transition duration-150 relative">
 
-          {/* ========================================== */}
-          {/* 👉 NEW: AUTOCOMPLETE FLOATING OVERLAY PANEL */}
-          {/* ========================================== */}
+          {/* Autocomplete Floating Panel */}
           <AnimatePresence>
             {showSuggestions && filteredSuggestions.length > 0 && (
               <motion.div
@@ -283,7 +384,6 @@ export function ChatRoom({
               </motion.div>
             )}
           </AnimatePresence>
-
 
           <div className="relative shrink-0" ref={arenaMenuRef}>
             
@@ -403,9 +503,8 @@ export function ChatRoom({
 
           <textarea
             value={message}
-            onChange={(e) => handleInputChange(e.target.value)} // 👉 FIX: Bound to new parser
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => {
-              // 👉 NEW: Autocomplete Keyboard Navigation Handling
               if (showSuggestions && filteredSuggestions.length > 0) {
                 if (e.key === "ArrowDown") {
                   e.preventDefault()
@@ -429,13 +528,9 @@ export function ChatRoom({
                 }
               }
 
-              // Standard submission behavior
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (message.trim()) {
-                  sendMessage()
-                  setShowSuggestions(false)
-                }
+                handleSend() 
               }
             }}
             placeholder="Say hello, or chat with @kiwi AI..."
@@ -446,12 +541,7 @@ export function ChatRoom({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              if (message.trim()) {
-                sendMessage()
-                setShowSuggestions(false)
-              }
-            }}
+            onClick={handleSend}
             className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 mb-0.5 rounded-lg transition-colors shrink-0"
           >
             <Send size={14} />
