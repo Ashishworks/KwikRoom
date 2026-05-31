@@ -1,4 +1,4 @@
-import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot } from "lucide-react"
+import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot, Bird } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { playSound } from "./sound" // 👉 NEW: Import the global sound utility
 
@@ -46,8 +46,8 @@ export function Lobby({
                 <div className="absolute top-0 left-1/4 -translate-y-1/2 w-1/2 h-20 bg-indigo-500/10 blur-3xl pointer-events-none" />
 
                 <div className="mb-5 text-center">
-                    <div className="mx-auto w-10 h-10 bg-indigo-600/10 border border-indigo-500/20 rounded-xl flex items-center justify-center mb-3">
-                        <MessageSquareDot strokeWidth={0.75} />
+                    <div className="mx-auto w-10 h-10 rounded-full bg-teal-500/10 text-teal-400/90 flex items-center justify-center border border-teal-500/20 mb-3">
+                        <Bird size={30} strokeWidth={1.0} />
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">KwikRoom</h1>
                 </div>
