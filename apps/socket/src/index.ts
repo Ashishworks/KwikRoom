@@ -50,9 +50,11 @@ io.on(
   }
 )
 
+const PORT = process.env.PORT || 4000
+
 httpServer.listen(
-  4000,
+  PORT,
   () => {
-    console.log("Socket server running on port 4000")
+    console.log(`Socket server running on port ${PORT}`)
   }
-)
+) 
