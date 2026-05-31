@@ -16,6 +16,18 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// ==========================================
+// 👉 NEW: RENDER HEALTH CHECK ENDPOINT
+// Ping this every 14 mins to keep the server awake
+// ==========================================
+app.get("/health", (req, res) => {
+  res.status(200).json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    service: "kwikroom-socket"
+  });
+});
+
 const httpServer = createServer(app)
 
 export const io = new Server(
@@ -38,7 +50,7 @@ io.on(
     registerMessageEvents(io, socket)
     checkRoomEvent(io, socket)
 
-    // 👉 NEW: Register the Arena events for Tic-Tac-Toe
+    // 👉 Register the Arena events for Tic-Tac-Toe
     gameEvents(io, socket)
 
     socket.on(
@@ -57,4 +69,4 @@ httpServer.listen(
   () => {
     console.log(`Socket server running on port ${PORT}`)
   }
-) 
+)
