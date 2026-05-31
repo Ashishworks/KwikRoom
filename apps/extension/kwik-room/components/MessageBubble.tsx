@@ -156,7 +156,7 @@ export function MessageBubble({ msg, isOwn, isSystem, isSameUserAsPrev, firstLet
                     {!isSameUserAsPrev && (
                         // 👉 FIX: Added 'flex items-center h-5 mt-0.5' to match the avatar's exact height and line
                         <div className="flex items-center h-5 mb-0.5 px-1 mt-0.5">
-                            <span className={`text-[14px] font-semibold tracking-tight ${isOwn ? "text-zinc-500" : isKiwi ? "text-teal-400/80" : "text-indigo-400"}`}>
+                            <span className={`text-[12px] font-semibold tracking-tight ${isOwn ? "text-zinc-500" : isKiwi ? "text-teal-400/80" : "text-indigo-400"}`}>
                                 {isOwn ? "You" : isKiwi ? "Kiwi" : msg.username}
                             </span>
                         </div>

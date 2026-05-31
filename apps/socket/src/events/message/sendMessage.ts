@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io"
 import { prisma } from "@kwikroom/db"
 import { redis } from "@kwikroom/redis"
-import { generateKiwiResponse } from "../../services/ai/kiwiService" // 👉 NEW: Import the function to generate Kiwi's response
+import { generateKiwiResponse } from "../../services/ai/kiwiService" // Imported function to generate Kiwi's response
 
 export function sendMessageEvent(
   io: Server,
@@ -33,7 +33,7 @@ export function sendMessageEvent(
         }
 
         // ==========================================
-        // 👉 NEW: KIWI AI GATEKEEPER
+        // KIWI AI GATEKEEPER
         // ==========================================
         // Check if it's a normal chat message and contains "@kiwi"
         const isTextMsg = !type || type === "chat" || type === "text";
@@ -52,7 +52,8 @@ export function sendMessageEvent(
 
           // 2. Fetch Kiwi's reply asynchronously
           try {
-            const kiwiReply = await generateKiwiResponse(message);
+            // 👉 FIX: Passed 'room' as the second argument so Kiwi can track conversational memory per room
+            const kiwiReply = await generateKiwiResponse(message, room);
             
             // 3. Broadcast Kiwi's reply (Ephemeral - no DB save)
             io.to(room).emit("message", {
