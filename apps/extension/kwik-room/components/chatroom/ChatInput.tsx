@@ -1,6 +1,7 @@
-import { useState, useRef, useMemo } from "react"
+import { useState, useRef, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Send, AtSign } from "lucide-react"
+import { Send, AtSign, Smile } from "lucide-react"
+import EmojiPicker, { Theme } from "emoji-picker-react"
 
 interface ChatInputProps {
   message: string
@@ -23,6 +24,10 @@ export function ChatInput({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestionSearch, setSuggestionSearch] = useState("")
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // Emoji Picker State
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const emojiPickerRef = useRef<HTMLDivElement>(null)
 
   // Typing Refs
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -76,6 +81,7 @@ export function ChatInput({
     if (message.trim()) {
       sendMessage()
       setShowSuggestions(false)
+      setShowEmojiPicker(false) // Close picker on send
       emitTyping(false)
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     }
@@ -90,8 +96,45 @@ export function ChatInput({
     setShowSuggestions(false)
   }
 
+  const onEmojiClick = (emojiObject: any) => {
+    setMessage(message + emojiObject.emoji)
+  }
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showEmojiPicker])
+
   return (
     <div className="flex items-end gap-1.5 flex-1 relative">
+      
+      {/* Floating Emoji Picker */}
+      <AnimatePresence>
+        {showEmojiPicker && (
+          <motion.div
+            ref={emojiPickerRef}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute bottom-[115%] left-0 z-50 shadow-2xl"
+          >
+            <EmojiPicker 
+              onEmojiClick={onEmojiClick} 
+              theme={Theme.DARK} 
+              autoFocusSearch={false}
+              lazyLoadEmojis={true}
+              searchPlaceHolder="Search emojis..."
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Autocomplete Floating Panel */}
       <AnimatePresence>
         {showSuggestions && filteredSuggestions.length > 0 && (
@@ -127,6 +170,22 @@ export function ChatInput({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Emoji Toggle Button */}
+      <motion.button
+        type="button"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+        className={`p-2 mb-0.5 rounded-lg transition-colors shrink-0 ${
+          showEmojiPicker 
+            ? "bg-indigo-500/20 text-indigo-400" 
+            : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+        }`}
+        title="Open Emojis"
+      >
+        <Smile size={18} strokeWidth={2} />
+      </motion.button>
 
       <textarea
         value={message}
