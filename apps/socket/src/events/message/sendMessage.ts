@@ -2,7 +2,7 @@ import { Server, Socket } from "socket.io"
 import { prisma } from "@kwikroom/db"
 import { redis } from "@kwikroom/redis"
 import { generateKiwiResponse } from "../../services/ai/kiwiService"
-import { encryptMessage, decryptMessage } from "../../utils/crypto"
+import { encryptMessage } from "../../utils/crypto" // Only need encryptMessage here
 
 export function sendMessageEvent(
   io: Server,
@@ -33,7 +33,6 @@ export function sendMessageEvent(
           return
         }
 
-        // 👉 NEW: Check if the room is temporary upfront so we know if we should save AI messages
         const tempRoom = await redis.exists(`room:${room}`)
 
         // ==========================================
@@ -43,111 +42,99 @@ export function sendMessageEvent(
         const isAiInteraction = isTextMsg && typeof message === "string" && message.toLowerCase().includes("@kiwi");
 
         if (isAiInteraction) {
-          let promptId: string | number = Date.now();
-          let kiwiId: string | number = Date.now() + 1;
-          let promptCreatedAt = new Date();
+          const promptId = Date.now();
+          const promptCreatedAt = new Date();
 
-          // 1. SAVE USER PROMPT TO DB (If persistent room)
-          if (!tempRoom) {
-            const savedPrompt = await prisma.message.create({
-              data: {
-                roomCode: room,
-                senderId: socket.id,
-                senderName: username,
-                content: encryptMessage(message) // 👉 ENCRYPTED HERE
-              }
-            })
-            promptId = Number(savedPrompt.id)
-            promptCreatedAt = savedPrompt.createdAt
-          }
-
-          // 2. Broadcast the user's prompt instantly
+          // 👉 1. BROADCAST USER PROMPT INSTANTLY (Zero Latency)
           io.to(room).emit("message", {
             id: promptId,
             username,
-            text: message, // 👉 PLAIN TEXT EMITTED TO LIVE USERS
+            text: message,
             createdAt: promptCreatedAt,
             type: "chat",
             metadata: { ...metadata, isAiInteraction: true }
           })
 
-          // 3. Fetch Kiwi's reply asynchronously
+          // 👉 2. SAVE USER PROMPT IN BACKGROUND
+          if (!tempRoom) {
+            // Notice there is NO "await". We catch errors so the server doesn't crash if DB fails.
+            prisma.message.create({
+              data: {
+                roomCode: room,
+                senderId: socket.id,
+                senderName: username,
+                content: encryptMessage(message)
+              }
+            }).catch(err => console.error("Background AI Prompt Save Error:", err))
+          }
+
+          // 3. Fetch Kiwi's reply asynchronously (We MUST wait for the AI to generate the text)
           try {
             const kiwiReply = await generateKiwiResponse(message, room);
-            let kiwiCreatedAt = new Date();
+            const kiwiId = Date.now() + 1;
+            const kiwiCreatedAt = new Date();
             
-            // 4. SAVE KIWI'S REPLY TO DB (If persistent room)
-            if (!tempRoom) {
-              const savedKiwi = await prisma.message.create({
-                data: {
-                  roomCode: room,
-                  senderId: "kiwi-ai-bot", // Static ID for the bot
-                  senderName: "Kiwi",
-                  content: encryptMessage(kiwiReply) // 👉 ENCRYPTED HERE
-                }
-              })
-              kiwiId = Number(savedKiwi.id)
-              kiwiCreatedAt = savedKiwi.createdAt
-            }
-
-            // 5. Broadcast Kiwi's reply
+            // 👉 4. BROADCAST KIWI REPLY INSTANTLY (Don't wait for DB!)
             io.to(room).emit("message", {
               id: kiwiId,
               username: "Kiwi",
-              text: kiwiReply, // 👉 PLAIN TEXT EMITTED TO LIVE USERS
+              text: kiwiReply, 
               createdAt: kiwiCreatedAt,
               type: "chat",
               metadata: { isBot: true, isAiInteraction: true }
             })
+
+            // 👉 5. SAVE KIWI REPLY IN BACKGROUND
+            if (!tempRoom) {
+              prisma.message.create({
+                data: {
+                  roomCode: room,
+                  senderId: "kiwi-ai-bot",
+                  senderName: "Kiwi",
+                  content: encryptMessage(kiwiReply)
+                }
+              }).catch(err => console.error("Background AI Reply Save Error:", err))
+            }
+
           } catch (err) {
             console.error("Kiwi generation failed:", err)
           }
 
-          // 6. STOP EXECUTION!
+          // STOP EXECUTION!
           return
         }
 
-
         // ==========================================
-        // EXISTING NORMAL CHAT LOGIC BELOW
+        // NORMAL CHAT LOGIC
         // ==========================================
         
-        // TEMPORARY ROOM (NO DB STORAGE)
-        if (tempRoom) {
-          io.to(room).emit(
-            "message",
-            {
-              id: Date.now(),
-              username,
-              text: message,
-              createdAt: new Date(),
-              type: "chat" 
-            }
-          )
-          return
-        }
+        // 👉 1. ALWAYS BROADCAST INSTANTLY (Whether temp or persistent)
+        const messageId = Date.now();
+        const messageCreatedAt = new Date();
 
-        // SAVE PERSISTENT NORMAL MESSAGE
-        const savedMessage = await prisma.message.create({
-          data: {
-            roomCode: room,
-            senderId: socket.id,
-            senderName: username,
-            content: encryptMessage(message) // 👉 ENCRYPTED HERE
-          }
-        })
-
-        // EMIT SAVED NORMAL MESSAGE
         io.to(room).emit(
           "message",
           {
-            id: Number(savedMessage.id),
-            username: savedMessage.senderName,
-            text: message, // 👉 CHANGED: Emitting plain text 'message' instead of encrypted 'savedMessage.content'
-            createdAt: savedMessage.createdAt,
+            id: messageId,
+            username,
+            text: message,
+            createdAt: messageCreatedAt,
             type: "chat" 
           }
         )
+
+        // 👉 2. IF PERSISTENT, SAVE AND ENCRYPT IN BACKGROUND
+        if (!tempRoom) {
+          // Fire and forget! The socket connection is freed up immediately.
+          prisma.message.create({
+            data: {
+              roomCode: room,
+              senderId: socket.id,
+              senderName: username,
+              content: encryptMessage(message)
+            }
+          }).catch(err => console.error("Background Chat Save Error:", err))
+        }
 
       } catch (error) {
         console.log(error)
