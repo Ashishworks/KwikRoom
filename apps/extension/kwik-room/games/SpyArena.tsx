@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, RotateCcw, Shield, HelpCircle, AlertTriangle, CheckCircle2, Timer, Send } from "lucide-react"
+import { ArrowLeft, RotateCcw, Shield, HelpCircle, AlertTriangle, CheckCircle2, Timer, Send, Info, X } from "lucide-react"
 import { playSound } from "../components/sound"
 
 interface SpyProps {
@@ -43,8 +43,10 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
   const [actionPanelHeight, setActionPanelHeight] = useState(200)
   const isDragging = useRef(false)
   
-  // 👉 NEW: State to track which panel the Spy is currently looking at
   const [spyTab, setSpyTab] = useState<"intercept" | "accuse">("intercept")
+  
+  // 👉 NEW: State to toggle the game rules modal
+  const [showRules, setShowRules] = useState(false)
 
   const isCreator = activeGame.isX
   const amISpy = gameState.spy === username
@@ -109,7 +111,7 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
             step: "setup", spy: "", location: "", activePlayers: prev.activePlayers,
             accusedPlayer: null, votes: {}, winner: null, winReason: "", timeLeft: 240, messages: []
           }))
-          setSpyTab("intercept") // Reset spy tab on restart
+          setSpyTab("intercept") 
           playSound("swoosh", isMuted)
         }
       }
@@ -251,11 +253,69 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
 
   return (
     <motion.div className="h-screen w-full overflow-hidden bg-zinc-950 text-white flex flex-col items-center p-4 relative">
+      
+      {/* 👉 FIXED: Header with Flee button on left, Info button on right */}
       <div className="absolute top-4 left-4 w-full flex items-center justify-between pr-8 z-10">
-        <button onClick={exitGame} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
+        <button onClick={exitGame} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 shadow-md">
           <ArrowLeft size={14} /> <span className="text-xs font-medium">Flee</span>
         </button>
+        <button onClick={() => setShowRules(true)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors bg-zinc-900/50 rounded-full border border-zinc-800 shadow-md" title="How to Play">
+          <Info size={16} />
+        </button>
       </div>
+
+      {/* 👉 NEW: How to Play Rules Modal */}
+      <AnimatePresence>
+        {showRules && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="flex justify-between items-center mb-4 shrink-0 border-b border-zinc-800/50 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Shield size={18} className="text-indigo-400" /> How to Play
+                </h3>
+                <button onClick={() => setShowRules(false)} className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded-md hover:bg-zinc-800">
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs text-zinc-300 style-scrollbar-hidden scrollbar-none">
+                <div>
+                  <h4 className="font-bold text-emerald-400 mb-1">📍 The Crew</h4>
+                  <p className="leading-relaxed text-zinc-400">You will be given a secret location. Ask other players questions about it to figure out who doesn't belong. Be careful: if your questions are too obvious, the Spy will figure out where you are! If you're too vague, you'll look like the Spy.</p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-red-400 mb-1">🕵️‍♂️ The Spy</h4>
+                  <p className="leading-relaxed text-zinc-400">You don't know the location! Listen carefully to the Crew's questions and answers. Blend in, deflect suspicion, and try to deduce the secret location without getting caught.</p>
+                </div>
+                <div className="bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50">
+                  <h4 className="font-bold text-indigo-400 mb-2">Winning the Game</h4>
+                  <ul className="space-y-2 text-zinc-400">
+                    <li className="flex gap-2 leading-relaxed"><span className="text-zinc-500 mt-0.5">•</span> <span><strong className="text-zinc-300">Accusation:</strong> Any player can accuse someone. If the vote is unanimous, the game ends. Catch the Spy to win, but if you exile a Crewmate, the Spy wins!</span></li>
+                    <li className="flex gap-2 leading-relaxed"><span className="text-zinc-500 mt-0.5">•</span> <span><strong className="text-zinc-300">Intercept:</strong> The Spy can stop the game at any time to guess the location. Guess correctly to win instantly!</span></li>
+                    <li className="flex gap-2 leading-relaxed"><span className="text-zinc-500 mt-0.5">•</span> <span><strong className="text-zinc-300">Timer:</strong> If the interrogation timer runs out, the Spy automatically wins.</span></li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 shrink-0">
+                <button onClick={() => setShowRules(false)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2.5 font-semibold transition-all text-sm shadow-md">
+                  Understood
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mt-12 mb-3 text-center shrink-0">
         <h2 className="text-xl font-bold tracking-tight text-zinc-100">The Spy Arena</h2>
@@ -340,7 +400,7 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
               {amISpy ? (
                 <div className="flex-1 bg-zinc-900/30 rounded-xl border border-zinc-800 p-2 flex flex-col overflow-hidden">
                   
-                  {/* 👉 NEW: Spy Navigation Tabs */}
+                  {/* Spy Navigation Tabs */}
                   <div className="flex gap-1 mb-2 shrink-0 bg-zinc-950 p-1 rounded-lg border border-zinc-800/50">
                     <button 
                       onClick={() => setSpyTab("intercept")} 

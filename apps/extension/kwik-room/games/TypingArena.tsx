@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, RotateCcw, Keyboard, Trophy, Timer, Users } from "lucide-react"
+import { ArrowLeft, RotateCcw, Keyboard, Trophy, Timer, Users, Info, X } from "lucide-react"
 import { playSound } from "../components/sound"
 
 interface TypingProps {
@@ -44,10 +44,13 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
 
     const [userInput, setUserInput] = useState("")
     const inputRef = useRef<HTMLInputElement>(null)
-    const activeCharRef = useRef<HTMLSpanElement>(null) // 👉 NEW: Tracks the current typing position
+    const activeCharRef = useRef<HTMLSpanElement>(null)
 
     const [selectedDuration, setSelectedDuration] = useState<number | "custom">(30)
     const [customDuration, setCustomDuration] = useState("")
+    
+    // 👉 NEW: State to toggle the game rules modal
+    const [showRules, setShowRules] = useState(false)
 
     const isCreator = activeGame.isX
     const targetText = PARAGRAPHS[gameState.textIndex]
@@ -59,10 +62,9 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
         }
     }, [gameState.step])
 
-    // 👉 NEW: Auto-Scroll Watcher
+    // Auto-Scroll Watcher
     useEffect(() => {
         if (activeCharRef.current && gameState.step === "playing") {
-            // Scrolls the container so the active line is always vertically centered
             activeCharRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
         }
     }, [userInput.length, gameState.step])
@@ -72,7 +74,6 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
         const listener = (msg: any) => {
             if (msg.type === "game-updated" && msg.payload.gameInstanceId === activeGame.id) {
                 
-                // 👉 FIX: Keep track of players as they join
                 if (msg.payload.action === "start") {
                     setGameState(prev => ({ ...prev, activePlayers: msg.payload.playersJoined || prev.activePlayers }))
                 }
@@ -112,7 +113,7 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
         return () => chrome.runtime.onMessage.removeListener(listener)
     }, [activeGame.id, activeGame.creator, isMuted, setActiveGame, gameState.step, gameState.activePlayers])
 
-    // Auto-sync state to late joiners (Creator acts as host)
+    // Auto-sync state to late joiners
     useEffect(() => {
         if (isCreator && gameState.step !== "setup") {
             chrome.runtime.sendMessage({
@@ -216,11 +217,65 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
 
     return (
         <motion.div className="h-screen w-full overflow-hidden bg-zinc-950 text-white flex flex-col items-center p-4 relative" onClick={() => inputRef.current?.focus()}>
+            
+            {/* 👉 FIXED: Header with Leave button on left, Info button on right */}
             <div className="absolute top-4 left-4 w-full flex items-center justify-between pr-8 z-10">
-                <button onClick={exitGame} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
+                <button onClick={exitGame} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 shadow-md">
                     <ArrowLeft size={14} /> <span className="text-xs font-medium">Leave</span>
                 </button>
+                <button onClick={() => setShowRules(true)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors bg-zinc-900/50 rounded-full border border-zinc-800 shadow-md" title="How to Play">
+                    <Info size={16} />
+                </button>
             </div>
+
+            {/* 👉 NEW: How to Play Rules Modal */}
+            <AnimatePresence>
+                {showRules && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 10 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 10 }}
+                            className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+                        >
+                            <div className="flex justify-between items-center mb-4 shrink-0 border-b border-zinc-800/50 pb-3">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Keyboard size={18} className="text-indigo-400" /> How to Play
+                                </h3>
+                                <button onClick={() => setShowRules(false)} className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded-md hover:bg-zinc-800">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs text-zinc-300 style-scrollbar-hidden scrollbar-none">
+                                <div>
+                                    <h4 className="font-bold text-indigo-400 mb-1">⏱️ The Setup</h4>
+                                    <p className="leading-relaxed text-zinc-400">The host configures the battle timer. Choose a quick 30-second sprint or a longer endurance test. Everyone will type the exact same text.</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-emerald-400 mb-1">⌨️ The Battle</h4>
+                                    <p className="leading-relaxed text-zinc-400">Type as fast and accurately as you can! You'll see your opponents' live progress represented by colored cursors and name tags floating over the text.</p>
+                                </div>
+                                <div className="bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50">
+                                    <h4 className="font-bold text-yellow-500 mb-2">Winning the Game</h4>
+                                    <p className="leading-relaxed text-zinc-400">When the timer runs out, the player with the highest WPM (Words Per Minute) claims victory. Accuracy matters—mistakes won't count toward your valid word count!</p>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-4 pt-4 shrink-0">
+                                <button onClick={() => setShowRules(false)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2.5 font-semibold transition-all text-sm shadow-md">
+                                    Understood
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <div className="mt-12 mb-3 text-center shrink-0">
                 <h2 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center justify-center gap-2">
@@ -306,7 +361,6 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
                             autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
                         />
 
-                        {/* 👉 FIX: Reduced line spacing (leading-[1.8rem]) + scrollbar-none to make it look clean */}
                         <div className="bg-zinc-900/40 p-5 rounded-xl border border-zinc-800/50 flex-1 overflow-y-auto text-sm leading-[1.8rem] font-mono shadow-inner relative whitespace-pre-wrap scrollbar-none">
                             {targetText.split("").map((char, i) => {
 
@@ -318,7 +372,6 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
                                 return (
                                     <span 
                                         key={i} 
-                                        // 👉 FIX: Attach the ref to the current typing index
                                         ref={i === userInput.length ? activeCharRef : null} 
                                         className={`relative inline-block whitespace-pre ${colorClass}`}
                                     >

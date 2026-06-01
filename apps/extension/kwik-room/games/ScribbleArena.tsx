@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, RotateCcw, Palette, Eraser, Trash, Send, CheckCircle2, XCircle, Minus, Plus, PaintBucket, Undo, Redo, Pencil } from "lucide-react"
+import { ArrowLeft, RotateCcw, Palette, Eraser, Trash, Send, CheckCircle2, XCircle, Minus, Plus, PaintBucket, Undo, Redo, Pencil, Info, X } from "lucide-react"
 import { playSound } from "../components/sound"
 
 interface ScribbleProps {
@@ -27,6 +27,9 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
   
   const [setupWord, setSetupWord] = useState("")
   const [currentGuess, setCurrentGuess] = useState("")
+  
+  // 👉 NEW: State to toggle the game rules modal
+  const [showRules, setShowRules] = useState(false)
   
   // 👉 BRUSH SETTINGS
   const [color, setColor] = useState("#ffffff")
@@ -406,11 +409,63 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
       className="h-screen w-full overflow-hidden bg-zinc-950 text-white flex flex-col items-center p-4 relative"
     >
       <div className="absolute top-4 left-4 w-full flex items-center justify-between pr-8 z-10">
-        <button onClick={exitGame} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
+        <button onClick={exitGame} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 shadow-md">
           <ArrowLeft size={14} />
-          <span className="text-xs font-medium">Flee</span>
+          <span className="text-xs font-medium">Flee Arena</span>
+        </button>
+        <button onClick={() => setShowRules(true)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors bg-zinc-900/50 rounded-full border border-zinc-800 shadow-md" title="How to Play">
+          <Info size={16} />
         </button>
       </div>
+
+      {/* 👉 NEW: How to Play Rules Modal */}
+      <AnimatePresence>
+        {showRules && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="flex justify-between items-center mb-4 shrink-0 border-b border-zinc-800/50 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Palette size={18} className="text-indigo-400" /> How to Play
+                </h3>
+                <button onClick={() => setShowRules(false)} className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded-md hover:bg-zinc-800">
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs text-zinc-300 style-scrollbar-hidden scrollbar-none">
+                <div>
+                  <h4 className="font-bold text-indigo-400 mb-1">🎨 The Artist</h4>
+                  <p className="leading-relaxed text-zinc-400">If you started the game, choose a secret word and draw it on the canvas using the brush, eraser, and paint bucket. Try to make it recognizable but don't spell the word out!</p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-emerald-400 mb-1">🤔 The Guessers</h4>
+                  <p className="leading-relaxed text-zinc-400">Watch the drawing unfold in real-time and type your guesses into the chat box below the canvas.</p>
+                </div>
+                <div className="bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50">
+                  <h4 className="font-bold text-yellow-500 mb-2">Winning the Game</h4>
+                  <p className="leading-relaxed text-zinc-400">The first player to successfully guess the exact secret word wins the round.</p>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 shrink-0">
+                <button onClick={() => setShowRules(false)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2.5 font-semibold transition-all text-sm shadow-md">
+                  Understood
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mt-10 mb-2 text-center">
         <h2 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center justify-center gap-2">
@@ -478,7 +533,7 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
                         className="w-5 h-5 rounded cursor-pointer border-none bg-transparent shrink-0" 
                      />
                      
-                     {/* 👉 NEW: Dedicated Pencil/Pen Selection Button */}
+                     {/* 👉 Dedicated Pencil/Pen Selection Button */}
                      <button onClick={() => setActiveTool("pen")} title="Pencil (Draw)" className={`shrink-0 ${activeTool === "pen" ? "text-indigo-400" : "text-zinc-400 hover:text-white"}`}><Pencil size={14} /></button>
                      
                      <button onClick={() => setActiveTool(activeTool === "fill" ? "pen" : "fill")} title="Fill Area (Flood Fill)" className={`shrink-0 ${activeTool === "fill" ? "text-indigo-400" : "text-zinc-400 hover:text-white"}`}><PaintBucket size={14} /></button>
