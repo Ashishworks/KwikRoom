@@ -32,6 +32,9 @@ export default function SidePanel() {
   const [incorrectPassword, setIncorrectPassword] = useState(false)
   const [checkingRoom, setCheckingRoom] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
+  
+  // 👉 NEW: Processing state for loading spinners
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const [lastRoomCode, setLastRoomCode] = useState("")
   const [isMuted, setIsMuted] = useState(false)
@@ -124,7 +127,11 @@ export default function SidePanel() {
     const listener = (message: any) => {
       if (message.type === "room-check-result") {
         setCheckingRoom(false)
-        if (!message.payload.exists) { setRoomExists(false); return; }
+        if (!message.payload.exists) { 
+          setRoomExists(false); 
+          setIsProcessing(false); // 👉 STOP SPINNER
+          return; 
+        }
 
         setRoomExists(true)
         if (message.payload.requiresPassword) {
@@ -136,6 +143,7 @@ export default function SidePanel() {
             return
           }
           setRequiresPassword(true)
+          setIsProcessing(false); // 👉 STOP SPINNER (Waiting for user to enter password)
           return
         }
 
@@ -157,6 +165,7 @@ export default function SidePanel() {
       }
 
       if (message.type === "room-joined") {
+        setIsProcessing(false) // 👉 STOP SPINNER
         setCheckingRoom(false)
         setRequiresPassword(false)
         setRoomExists(true)
@@ -173,6 +182,7 @@ export default function SidePanel() {
       }
 
       if (message.type === "socket-error") {
+        setIsProcessing(false) // 👉 STOP SPINNER
         setCheckingRoom(false)
         if (message.payload === "Invalid password") setIncorrectPassword(true)
       }
@@ -201,7 +211,6 @@ export default function SidePanel() {
         
         const maxPlayers = ["word_guess", "scribble_it", "the_spy", "typing_battle"].includes(gameType) ? 7 : 2;
 
-        // 👉 FIX: Safely map over messages using ?. and fallback objects
         setMessages((prev) => prev.map((msg) => {
           if (msg.type === "game_invite" && msg.metadata?.gameInstanceId === gameInstanceId) {
             let isExpired = msg.metadata?.expired || false;
@@ -219,8 +228,8 @@ export default function SidePanel() {
             return { 
               ...msg, 
               metadata: { 
-                ...(msg.metadata || {}), // Safely spread existing metadata
-                playersJoined: playersJoined || msg.metadata?.playersJoined, // Safely update players
+                ...(msg.metadata || {}), 
+                playersJoined: playersJoined || msg.metadata?.playersJoined, 
                 expired: isExpired 
               } 
             }
@@ -254,6 +263,7 @@ export default function SidePanel() {
 
   const createRoom = async () => {
     if (!username) return
+    setIsProcessing(true) // 👉 START SPINNER
     chrome.runtime.sendMessage({
       type: "create-room",
       payload: { username, isPersistent, password: isPersistent ? roomPassword : undefined }
@@ -262,6 +272,7 @@ export default function SidePanel() {
 
   const joinRoom = async () => {
     if (!roomCode || !username) return
+    setIsProcessing(true) // 👉 START SPINNER
     setCheckingRoom(true)
     let payload = { room: roomCode, username } as any
     if (requiresPassword) {
@@ -328,6 +339,7 @@ export default function SidePanel() {
           checkingRoom={checkingRoom} roomExists={roomExists}
           requiresPassword={requiresPassword} incorrectPassword={incorrectPassword}
           joinRoom={joinRoom} createRoom={createRoom}
+          isProcessing={isProcessing} // 👉 PASS STATE TO LOBBY
         />
       ) : activeGame ? (
         activeGame.type === "tic_tac_toe" ? (

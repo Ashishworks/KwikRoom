@@ -1,9 +1,9 @@
-import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot, Bird } from "lucide-react"
+import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot, Bird, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { playSound } from "./sound" // 👉 NEW: Import the global sound utility
+import { playSound } from "./sound" 
 
 interface LobbyProps {
-    isMuted: boolean // 👉 NEW: Added mute status to props
+    isMuted: boolean 
     lastRoomCode: string
     activeTab: "join" | "create"
     setActiveTab: (tab: "join" | "create") => void
@@ -23,18 +23,33 @@ interface LobbyProps {
     incorrectPassword: boolean
     joinRoom: () => void
     createRoom: () => void
+    isProcessing?: boolean // 👉 NEW: Added to handle active network request state
 }
 
 export function Lobby({
-    isMuted, // 👉 NEW: Destructured here
+    isMuted, 
     lastRoomCode,
     activeTab, setActiveTab, isPersistent, setIsPersistent, roomPassword, setRoomPassword,
     username, setUsername, roomCode, setRoomCode, showPassword, setShowPassword,
-    checkingRoom, roomExists, requiresPassword, incorrectPassword, joinRoom, createRoom
+    checkingRoom, roomExists, requiresPassword, incorrectPassword, joinRoom, createRoom,
+    isProcessing = false // 👉 NEW: Defaults to false if not provided by parent
 }: LobbyProps) {
 
     const canCreateRoom = username.trim().length > 0 && (!isPersistent || roomPassword.trim().length > 0)
     const canJoinRoom = username.trim().length > 0 && roomCode.trim().length > 0
+
+    // 👉 NEW: Unified form submit handler to support the "Enter" key
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (isProcessing) return
+
+        if (activeTab === "join") {
+            if (requiresPassword && !roomPassword.trim()) return
+            if (canJoinRoom && !checkingRoom) joinRoom()
+        } else {
+            if (canCreateRoom) createRoom()
+        }
+    }
 
     return (
         <div className="h-screen bg-zinc-950 text-white flex items-center justify-center p-4 selection:bg-indigo-500/30">
@@ -67,7 +82,7 @@ export function Lobby({
                         className={`flex-1 relative z-10 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${activeTab === "join" ? "text-white" : "text-zinc-500"}`}
                     >
                         <LogIn size={13} />
-                        {checkingRoom ? "Checking..." : "Join Room"}
+                        Join Room
                     </button>
                     <button
                         onClick={() => { setActiveTab("create"); setRoomPassword(""); setShowPassword(false); }}
@@ -78,7 +93,8 @@ export function Lobby({
                     </button>
                 </div>
 
-                <div className="space-y-3.5">
+                {/* 👉 NEW: Wrapped in a <form> tag to catch Enter key presses */}
+                <form onSubmit={handleSubmit} className="space-y-3.5">
                     <input
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
@@ -96,12 +112,19 @@ export function Lobby({
                                 transition={{ duration: 0.15 }}
                                 className="space-y-3.5"
                             >
-                                <input
-                                    value={roomCode}
-                                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                                    placeholder="Enter Room Code"
-                                    className="w-full bg-zinc-950/80 border border-zinc-800 focus:border-indigo-500/80 rounded-xl px-4 py-3 text-sm outline-none transition placeholder:text-zinc-600 tracking-wider font-mono"
-                                />
+                                <div className="relative">
+                                    <input
+                                        value={roomCode}
+                                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                                        placeholder="Enter Room Code"
+                                        className="w-full bg-zinc-950/80 border border-zinc-800 focus:border-indigo-500/80 rounded-xl px-4 py-3 text-sm outline-none transition placeholder:text-zinc-600 tracking-wider font-mono"
+                                    />
+                                    {checkingRoom && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <Loader2 size={16} className="text-zinc-500 animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
 
                                 <AnimatePresence>
                                     {lastRoomCode && roomCode !== lastRoomCode && (
@@ -124,7 +147,7 @@ export function Lobby({
                                     )}
                                 </AnimatePresence>
 
-                                {!roomExists && (
+                                {!roomExists && roomCode.length > 0 && !checkingRoom && (
                                     <p className="text-xs text-red-400 px-1">Room does not exist</p>
                                 )}
                                 {incorrectPassword && (
@@ -151,16 +174,13 @@ export function Lobby({
                                 )}
 
                                 <motion.button
-                                    whileHover={{ scale: 1.01 }}
-                                    whileTap={{ scale: 0.99 }}
-                                    onClick={() => {
-                                        if (requiresPassword && !roomPassword.trim()) return;
-                                        joinRoom();
-                                    }}
-                                    disabled={!canJoinRoom}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold tracking-wide transition shadow-lg shadow-indigo-600/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    type="submit" // 👉 NEW: Changed to submit
+                                    whileHover={canJoinRoom && !checkingRoom && !isProcessing ? { scale: 1.01 } : {}}
+                                    whileTap={canJoinRoom && !checkingRoom && !isProcessing ? { scale: 0.99 } : {}}
+                                    disabled={!canJoinRoom || checkingRoom || isProcessing} // 👉 NEW: Disabled during processing
+                                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold tracking-wide transition shadow-lg shadow-indigo-600/15 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Join Room
+                                    {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Joining...</> : "Join Room"}
                                 </motion.button>
                             </motion.div>
                         ) : (
@@ -182,20 +202,19 @@ export function Lobby({
                                             </div>
                                         </div>
 
-                                        <motion.button
-                                            whileTap={{ scale: 0.92 }}
+                                        <button
+                                            type="button"
                                             onClick={() => {
                                                 const newState = !isPersistent;
                                                 setIsPersistent(newState);
-                                                // 👉 UPDATED: Use the global sound utility with isMuted
                                                 playSound(newState ? "lock" : "unlock", isMuted);
                                             }}
-                                            className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-200 ${isPersistent ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "bg-red-500/15 border-red-500/40 text-red-400"}`}
+                                            className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-200 active:scale-95 ${isPersistent ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "bg-red-500/15 border-red-500/40 text-red-400"}`}
                                         >
                                             <motion.div animate={{ rotate: isPersistent ? 0 : -15, scale: isPersistent ? 1 : 0.92 }} transition={{ type: "spring", stiffness: 300, damping: 18 }}>
                                                 {isPersistent ? <Lock size={15} /> : <Unlock size={15} />}
                                             </motion.div>
-                                        </motion.button>
+                                        </button>
                                     </div>
 
                                     <AnimatePresence initial={false}>
@@ -220,18 +239,18 @@ export function Lobby({
                                 </div>
 
                                 <motion.button
-                                    whileHover={{ scale: 1.01 }}
-                                    whileTap={{ scale: 0.99 }}
-                                    onClick={createRoom}
-                                    disabled={!canCreateRoom}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold tracking-wide transition shadow-lg shadow-indigo-600/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    type="submit" // 👉 NEW: Changed to submit
+                                    whileHover={canCreateRoom && !isProcessing ? { scale: 1.01 } : {}}
+                                    whileTap={canCreateRoom && !isProcessing ? { scale: 0.99 } : {}}
+                                    disabled={!canCreateRoom || isProcessing} // 👉 NEW: Disabled during processing
+                                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold tracking-wide transition shadow-lg shadow-indigo-600/15 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Create Room
+                                    {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Creating...</> : "Create Room"}
                                 </motion.button>
                             </motion.div>
                         )}
                     </AnimatePresence>
-                </div>
+                </form>
             </motion.div>
         </div>
     )
