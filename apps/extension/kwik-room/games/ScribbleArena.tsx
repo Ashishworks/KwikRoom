@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, RotateCcw, Palette, Eraser, Trash, Send, CheckCircle2, XCircle, Minus, Plus, PaintBucket } from "lucide-react"
+import { ArrowLeft, RotateCcw, Palette, Eraser, Trash, Send, CheckCircle2, XCircle, Minus, Plus, PaintBucket, Undo, Redo, Pencil } from "lucide-react"
 import { playSound } from "../components/sound"
 
 interface ScribbleProps {
@@ -31,7 +31,11 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
   // 👉 BRUSH SETTINGS
   const [color, setColor] = useState("#ffffff")
   const [lineWidth, setLineWidth] = useState(3)
-  const [isEraser, setIsEraser] = useState(false)
+  const [activeTool, setActiveTool] = useState<"pen" | "eraser" | "fill">("pen")
+
+  // 👉 UNDO / REDO HISTORY STACKS
+  const [history, setHistory] = useState<string[]>([])
+  const [redoStack, setRedoStack] = useState<string[]>([])
 
   const isCreator = activeGame.isX
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -42,6 +46,10 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
     const listener = (msg: any) => {
       if (msg.type === "game-updated" && msg.payload.gameInstanceId === activeGame.id) {
         
+        if (msg.payload.action === "start") {
+           setGameState(prev => ({ ...prev, activePlayers: msg.payload.playersJoined || prev.activePlayers }))
+        }
+
         if (msg.payload.action === "sync") {
            setGameState(msg.payload.gameState)
            if (msg.payload.gameState.canvasData && !isCreator) {
@@ -55,11 +63,15 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
            drawLine(x0, y0, x1, y1, color, width, false, isEraser)
         }
 
-        // 👉 REAL-TIME CLEAR/FILL RECEIVER
+        // 👉 REAL-TIME FLOOD FILL / CLEAR / UNDO / REDO RECEIVERS
         if (msg.payload.action === "clear_canvas" && !isCreator) clearLocalCanvas()
-        if (msg.payload.action === "fill_canvas" && !isCreator) fillLocalCanvas(msg.payload.color)
+        if (msg.payload.action === "fill_canvas" && !isCreator) {
+           performFloodFill(msg.payload.x, msg.payload.y, msg.payload.color)
+        }
+        if ((msg.payload.action === "undo_canvas" || msg.payload.action === "redo_canvas") && !isCreator) {
+           restoreCanvas(msg.payload.canvasData)
+        }
         
-        // 👉 CUSTOM LEAVE LOGIC
         if (msg.payload.action === "leave") {
            const leaver = msg.payload.username;
            const remaining = gameState.activePlayers.filter(p => p !== leaver);
@@ -74,6 +86,8 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
         if (msg.payload.action === "restart") {
            setGameState(prev => ({ step: "setup", word: "", guesses: [], winner: null, activePlayers: prev.activePlayers, canvasData: null }))
            clearLocalCanvas()
+           setHistory([])
+           setRedoStack([])
            playSound("swoosh", isMuted)
         }
       }
@@ -82,7 +96,6 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [activeGame.id, activeGame.creator, isMuted, setActiveGame, gameState.activePlayers, isCreator])
 
-  // Sync state to late joiners (Creator acts as host)
   useEffect(() => {
     if (isCreator && gameState.step !== "setup") {
       const currentCanvas = canvasRef.current?.toDataURL() || null;
@@ -91,7 +104,7 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
         payload: { room: roomCode, gameInstanceId: activeGame.id, action: "sync", gameState: { ...gameState, canvasData: currentCanvas } }
       })
     }
-  }, [activeGame.opponent]) 
+  }, [activeGame.players?.length]) 
 
   const syncState = (newState: GameState) => {
     setGameState(newState)
@@ -102,24 +115,137 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
   }
 
   // ==========================================
+  // 👉 FLOOD FILL ALGORITHM
+  // ==========================================
+  const hexToRgb = (hex: string) => {
+    const bigint = parseInt(hex.replace('#', ''), 16)
+    return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255, a: 255 }
+  }
+
+  const performFloodFill = (startX: number, startY: number, fillColorHex: string) => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext("2d", { willReadFrequently: true })
+    if (!ctx || !canvas) return
+
+    const fillRgb = hexToRgb(fillColorHex)
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imgData.data
+
+    const startPos = (startY * canvas.width + startX) * 4
+    const startR = data[startPos]
+    const startG = data[startPos + 1]
+    const startB = data[startPos + 2]
+    const startA = data[startPos + 3]
+
+    if (startR === fillRgb.r && startG === fillRgb.g && startB === fillRgb.b && startA === fillRgb.a) return
+
+    const matchStartColor = (pos: number) => {
+      return data[pos] === startR && data[pos + 1] === startG && data[pos + 2] === startB && data[pos + 3] === startA
+    }
+
+    const colorPixel = (pos: number) => {
+      data[pos] = fillRgb.r
+      data[pos + 1] = fillRgb.g
+      data[pos + 2] = fillRgb.b
+      data[pos + 3] = fillRgb.a
+    }
+
+    const pixelStack = [[startX, startY]]
+
+    while (pixelStack.length) {
+      const newPos = pixelStack.pop() as number[]
+      let x = newPos[0]
+      let y = newPos[1]
+      let pixelPos = (y * canvas.width + x) * 4
+
+      while (y-- >= 0 && matchStartColor(pixelPos)) {
+        pixelPos -= canvas.width * 4
+      }
+      pixelPos += canvas.width * 4
+      ++y
+
+      let reachLeft = false
+      let reachRight = false
+
+      while (y++ < canvas.height - 1 && matchStartColor(pixelPos)) {
+        colorPixel(pixelPos)
+
+        if (x > 0) {
+          if (matchStartColor(pixelPos - 4)) {
+            if (!reachLeft) {
+              pixelStack.push([x - 1, y])
+              reachLeft = true
+            }
+          } else if (reachLeft) {
+            reachLeft = false
+          }
+        }
+
+        if (x < canvas.width - 1) {
+          if (matchStartColor(pixelPos + 4)) {
+            if (!reachRight) {
+              pixelStack.push([x + 1, y])
+              reachRight = true
+            }
+          } else if (reachRight) {
+            reachRight = false
+          }
+        }
+        pixelPos += canvas.width * 4
+      }
+    }
+    ctx.putImageData(imgData, 0, 0)
+  }
+
+  // ==========================================
   // 👉 CANVAS LOGIC
   // ==========================================
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isCreator || gameState.step !== "playing") return
-    isDrawing.current = true
+    
+    if (history.length === 0) {
+      const blankData = canvasRef.current?.toDataURL()
+      if (blankData) setHistory([blankData])
+    }
+
     const pos = getPos(e)
+    const x = Math.floor(pos.x)
+    const y = Math.floor(pos.y)
+
+    if (activeTool === "fill") {
+      performFloodFill(x, y, color)
+      const dataUrl = canvasRef.current?.toDataURL() || null
+      if (dataUrl) {
+        setHistory(prev => [...prev, dataUrl])
+        setRedoStack([])
+      }
+      chrome.runtime.sendMessage({
+        type: "game-action",
+        payload: { room: roomCode, gameInstanceId: activeGame.id, action: "fill_canvas", x, y, color }
+      })
+      return
+    }
+    
+    isDrawing.current = true
     lastPos.current = pos
   }
 
   const stopDrawing = () => {
-    isDrawing.current = false
+    if (isDrawing.current) {
+      isDrawing.current = false
+      const dataUrl = canvasRef.current?.toDataURL() || null
+      if (dataUrl) {
+        setHistory(prev => [...prev, dataUrl])
+        setRedoStack([])
+      }
+    }
   }
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing.current || !isCreator || gameState.step !== "playing") return
+    if (!isDrawing.current || !isCreator || gameState.step !== "playing" || activeTool === "fill") return
     const pos = getPos(e)
     
-    drawLine(lastPos.current.x, lastPos.current.y, pos.x, pos.y, color, lineWidth, true, isEraser)
+    drawLine(lastPos.current.x, lastPos.current.y, pos.x, pos.y, color, lineWidth, true, activeTool === "eraser")
     lastPos.current = pos
   }
 
@@ -132,8 +258,8 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
     ctx.lineTo(x1, y1)
     
     if (eraserMode) {
-      ctx.globalCompositeOperation = 'destination-out' // Erases pixels
-      ctx.lineWidth = strokeWidth * 4 // Eraser should be slightly larger
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.lineWidth = strokeWidth * 4 
     } else {
       ctx.globalCompositeOperation = 'source-over'
       ctx.strokeStyle = strokeColor
@@ -168,7 +294,16 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
   }
 
   const triggerClearCanvas = () => {
+    if (history.length === 0) {
+      const blankData = canvasRef.current?.toDataURL()
+      if (blankData) setHistory([blankData])
+    }
     clearLocalCanvas()
+    const dataUrl = canvasRef.current?.toDataURL() || null
+    if (dataUrl) {
+      setHistory(prev => [...prev, dataUrl])
+      setRedoStack([])
+    }
     chrome.runtime.sendMessage({
       type: "game-action",
       payload: { room: roomCode, gameInstanceId: activeGame.id, action: "clear_canvas" }
@@ -182,23 +317,6 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
     ctx.clearRect(0, 0, canvas.width, canvas.height)
   }
 
-  const triggerFillCanvas = () => {
-    fillLocalCanvas(color)
-    chrome.runtime.sendMessage({
-      type: "game-action",
-      payload: { room: roomCode, gameInstanceId: activeGame.id, action: "fill_canvas", color }
-    })
-  }
-
-  const fillLocalCanvas = (fillColor: string) => {
-    const canvas = canvasRef.current
-    const ctx = canvas?.getContext("2d")
-    if (!ctx || !canvas) return
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.fillStyle = fillColor
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-  }
-
   const restoreCanvas = (dataUrl: string) => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext("2d")
@@ -207,13 +325,43 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
     img.src = dataUrl
     img.onload = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.globalCompositeOperation = 'source-over'
       ctx.drawImage(img, 0, 0)
     }
   }
 
-  // ==========================================
-  // 👉 GAME ACTIONS
-  // ==========================================
+  const handleUndo = () => {
+    if (history.length <= 1) return 
+    const newHistory = [...history]
+    const current = newHistory.pop()
+    if (current) setRedoStack(prev => [...prev, current])
+    
+    const previousState = newHistory[newHistory.length - 1]
+    setHistory(newHistory)
+    restoreCanvas(previousState)
+
+    chrome.runtime.sendMessage({
+      type: "game-action",
+      payload: { room: roomCode, gameInstanceId: activeGame.id, action: "undo_canvas", canvasData: previousState }
+    })
+  }
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return
+    const newRedo = [...redoStack]
+    const nextState = newRedo.pop()
+    if (nextState) {
+      setHistory(prev => [...prev, nextState])
+      setRedoStack(newRedo)
+      restoreCanvas(nextState)
+
+      chrome.runtime.sendMessage({
+        type: "game-action",
+        payload: { room: roomCode, gameInstanceId: activeGame.id, action: "redo_canvas", canvasData: nextState }
+      })
+    }
+  }
+
   const startGame = () => {
     if (!setupWord.trim()) return
     syncState({ ...gameState, step: "playing", word: setupWord.trim().toUpperCase() })
@@ -311,9 +459,13 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
                    </span>
                  )}
 
-                 {/* 👉 NEW: TOOLBAR */}
+                 {/* TOOLBAR */}
                  {isCreator && gameState.step === "playing" && (
                    <div className="flex gap-2 items-center shrink-0">
+                     {/* Undo / Redo */}
+                     <button onClick={handleUndo} disabled={history.length <= 1} title="Undo" className="text-zinc-400 hover:text-white disabled:opacity-20 shrink-0 transition-opacity"><Undo size={14} /></button>
+                     <button onClick={handleRedo} disabled={redoStack.length === 0} title="Redo" className="text-zinc-400 hover:text-white disabled:opacity-20 shrink-0 transition-opacity" style={{marginRight: '4px'}}><Redo size={14} /></button>
+                     
                      <div className="flex items-center bg-zinc-900 rounded-md border border-zinc-800">
                        <button onClick={() => setLineWidth(Math.max(1, lineWidth - 2))} className="text-zinc-400 hover:text-white p-1 border-r border-zinc-800"><Minus size={12}/></button>
                        <span className="text-[10px] w-4 text-center text-zinc-300 font-medium">{lineWidth}</span>
@@ -322,15 +474,20 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
                      <input 
                         type="color" 
                         value={color} 
-                        onChange={e => { setColor(e.target.value); setIsEraser(false); }} 
+                        onChange={e => { setColor(e.target.value); if (activeTool !== "pen") setActiveTool("pen"); }} 
                         className="w-5 h-5 rounded cursor-pointer border-none bg-transparent shrink-0" 
                      />
-                     <button onClick={triggerFillCanvas} title="Fill Background" className="text-zinc-400 hover:text-indigo-400 shrink-0"><PaintBucket size={14} /></button>
-                     <button onClick={() => setIsEraser(!isEraser)} title="Eraser" className={`shrink-0 ${isEraser ? "text-indigo-400" : "text-zinc-400 hover:text-white"}`}><Eraser size={14} /></button>
+                     
+                     {/* 👉 NEW: Dedicated Pencil/Pen Selection Button */}
+                     <button onClick={() => setActiveTool("pen")} title="Pencil (Draw)" className={`shrink-0 ${activeTool === "pen" ? "text-indigo-400" : "text-zinc-400 hover:text-white"}`}><Pencil size={14} /></button>
+                     
+                     <button onClick={() => setActiveTool(activeTool === "fill" ? "pen" : "fill")} title="Fill Area (Flood Fill)" className={`shrink-0 ${activeTool === "fill" ? "text-indigo-400" : "text-zinc-400 hover:text-white"}`}><PaintBucket size={14} /></button>
+                     <button onClick={() => setActiveTool(activeTool === "eraser" ? "pen" : "eraser")} title="Eraser" className={`shrink-0 ${activeTool === "eraser" ? "text-indigo-400" : "text-zinc-400 hover:text-white"}`}><Eraser size={14} /></button>
                      <button onClick={triggerClearCanvas} title="Clear All" className="text-red-500/80 hover:text-red-400 shrink-0"><Trash size={14} /></button>
                    </div>
                  )}
               </div>
+              
               <canvas
                 ref={canvasRef}
                 width={350}
@@ -342,7 +499,7 @@ export function ScribbleArena({ isMuted, roomCode, username, activeGame, setActi
                 onTouchStart={startDrawing}
                 onTouchEnd={stopDrawing}
                 onTouchMove={draw}
-                className={`w-full h-[250px] bg-zinc-900 touch-none ${isCreator && gameState.step === "playing" ? (isEraser ? "cursor-cell" : "cursor-crosshair") : "cursor-default"}`}
+                className={`w-full h-[250px] bg-zinc-900 touch-none ${isCreator && gameState.step === "playing" ? (activeTool === "fill" ? "cursor-alias" : activeTool === "eraser" ? "cursor-cell" : "cursor-crosshair") : "cursor-default"}`}
               />
             </div>
 

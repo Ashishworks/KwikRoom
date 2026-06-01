@@ -11,8 +11,8 @@ import { TicTacToeArena } from "./games/TicTacToeArena"
 import { FourInARowArena } from "./games/FourInARowArena"
 import { WordGuessArena } from "./games/WordGuessArena"
 import { ScribbleArena } from "./games/ScribbleArena"
-import { SpyArena } from "./games/SpyArena" // 👉 NEW: Import The Spy Arena
-import { TypingArena } from "./games/TypingArena" // 👉 NEW: Import Typing Battle Arena
+import { SpyArena } from "./games/SpyArena" 
+import { TypingArena } from "./games/TypingArena" 
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<"join" | "create">("join")
@@ -197,23 +197,39 @@ export default function SidePanel() {
       // ARENA ROUTING & EXPIRATION LOGIC
       // ==========================================
       if (message.type === "game-updated") {
-        const { action, gameInstanceId, playersJoined, gameType } = message.payload;
+        const { action, gameInstanceId, playersJoined, gameType, gameState } = message.payload;
+        
+        const maxPlayers = ["word_guess", "scribble_it", "the_spy", "typing_battle"].includes(gameType) ? 7 : 2;
 
-        const maxPlayers = ["word_guess", "scribble_it", "the_spy"].includes(gameType) ? 7 : 2;
+        // 👉 FIX: Safely map over messages using ?. and fallback objects
+        setMessages((prev) => prev.map((msg) => {
+          if (msg.type === "game_invite" && msg.metadata?.gameInstanceId === gameInstanceId) {
+            let isExpired = msg.metadata?.expired || false;
 
-        // Expire the invite if someone leaves OR the room hits max capacity
-        if (action === "leave" || (action === "start" && playersJoined?.length === maxPlayers)) {
-          setMessages((prev) => prev.map((msg) => {
-            if (msg.type === "game_invite" && msg.metadata?.gameInstanceId === gameInstanceId) {
-              return { ...msg, metadata: { ...msg.metadata, expired: true } }
+            // Expire if someone leaves OR the room hits max capacity
+            if (action === "leave" || (action === "start" && playersJoined?.length === maxPlayers)) {
+              isExpired = true;
             }
-            return msg
-          }))
-        }
 
-        // Mount the game as long as at least 1 person has joined the creator
-        if (action === "start" && playersJoined?.length >= 2) {
+            // Expire immediately when Word Guess/Scribble creator hits "Start Game"
+            if (action === "sync" && gameState?.step === "playing") {
+              isExpired = true;
+            }
 
+            return { 
+              ...msg, 
+              metadata: { 
+                ...(msg.metadata || {}), // Safely spread existing metadata
+                playersJoined: playersJoined || msg.metadata?.playersJoined, // Safely update players
+                expired: isExpired 
+              } 
+            }
+          }
+          return msg
+        }))
+
+        // Mount the game as long as at least 1 person has joined the creator (including late syncs)
+        if ((action === "start" || action === "sync") && playersJoined?.length >= 2) {
           if (playersJoined.includes(usernameRef.current)) {
             const opponents = playersJoined.filter((p: string) => p !== usernameRef.current).join(", ");
             const creator = playersJoined[0];
@@ -221,10 +237,10 @@ export default function SidePanel() {
 
             setActiveGame(prev => ({
               id: gameInstanceId,
-              type: gameType || "tic_tac_toe",
+              type: gameType || prev?.type || "tic_tac_toe", // Safe fallback
               opponent: opponents,
               isX: isCreator,
-              creator: creator, // Track who made it
+              creator: creator, 
               players: playersJoined // Track everyone
             }));
           }

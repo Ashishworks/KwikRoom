@@ -38,6 +38,11 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
     const listener = (msg: any) => {
       if (msg.type === "game-updated" && msg.payload.gameInstanceId === activeGame.id) {
         
+        // 👉 NEW: Catch new players joining and update the in-game counter
+        if (msg.payload.action === "start") {
+           setGameState(prev => ({ ...prev, activePlayers: msg.payload.playersJoined || prev.activePlayers }))
+        }
+
         if (msg.payload.action === "sync") {
            setGameState(msg.payload.gameState)
            playSound("receive", isMuted)
@@ -75,7 +80,7 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
         payload: { room: roomCode, gameInstanceId: activeGame.id, action: "sync", gameState }
       })
     }
-  }, [activeGame.opponent]) 
+  }, [activeGame.players?.length]) // 👉 FIX: Triggers sync whenever the player count changes
 
   const syncState = (newState: GameState) => {
     setGameState(newState)
