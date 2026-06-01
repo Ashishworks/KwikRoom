@@ -1,136 +1,80 @@
 import { Server, Socket } from "socket.io"
-
 import bcrypt from "bcrypt"
-import {
-  serializeMessage
-}
-  from "@kwikroom/utils"
+import { serializeMessage } from "@kwikroom/utils"
 import { prisma } from "@kwikroom/db"
-
 import { redis } from "@kwikroom/redis"
-
-import { roomUsers }
-  from "../../state/roomUsers.js"
+import { roomUsers } from "../../state/roomUsers.js"
+import { decryptMessage } from "../../utils/crypto" // 👉 NEW: Import decryption utility
 
 export function joinRoomEvent(
   io: Server,
   socket: Socket
 ) {
-
   socket.on(
     "join-room",
-
     async ({
       room,
       username,
       password
     }) => {
-
       try {
-
         // CHECK TEMP ROOM
-
-        const tempRoom =
-          await redis.get(
-            `room:${room}`
-          )
+        const tempRoom = await redis.get(`room:${room}`)
 
         // CHECK PERSISTENT ROOM
-
-        const persistentRoom =
-          await prisma.room.findUnique({
-
-            where: {
-              code: room
-            }
-
-          })
+        const persistentRoom = await prisma.room.findUnique({
+          where: {
+            code: room
+          }
+        })
 
         // ROOM DOES NOT EXIST
-
-        if (
-          tempRoom === null &&
-          !persistentRoom
-        ) {
-
+        if (tempRoom === null && !persistentRoom) {
           socket.emit(
             "error",
             "Room does not exist"
           )
-
           return
-
         }
 
         // PASSWORD CHECK
-
-        if (
-          persistentRoom?.password
-        ) {
-
+        if (persistentRoom?.password) {
           if (!password) {
-
             socket.emit(
               "error",
               "Password required"
             )
-
             return
-
           }
 
-          const validPassword =
-            await bcrypt.compare(
-              password,
-              persistentRoom.password
-            )
+          const validPassword = await bcrypt.compare(
+            password,
+            persistentRoom.password
+          )
 
           if (!validPassword) {
-
             socket.emit(
               "error",
               "Invalid password"
             )
-
             return
-
           }
-
         }
 
         // JOIN SOCKET ROOM
-
         socket.join(room)
-
-        socket.data.room =
-          room
-
-        socket.data.username =
-          username
-
-        socket.data.isPersistent =
-          !!persistentRoom
+        socket.data.room = room
+        socket.data.username = username
+        socket.data.isPersistent = !!persistentRoom
 
         // ONLINE USERS
-
-        const users =
-          roomUsers.get(room) || []
-
-        if (
-          !users.includes(username)
-        ) {
-
+        const users = roomUsers.get(room) || []
+        if (!users.includes(username)) {
           users.push(username)
-
         }
-
-        roomUsers.set(
-          room,
-          users
-        )
+        roomUsers.set(room, users)
 
         // DEFAULT EMPTY HISTORY
-
         let orderedMessages: {
           id: string
           username: string
@@ -138,86 +82,60 @@ export function joinRoomEvent(
           createdAt: Date
         }[] = []
 
-        // ONLY PERSISTENT ROOMS
-        // HAVE SAVED HISTORY
-
+        // ONLY PERSISTENT ROOMS HAVE SAVED HISTORY
         if (persistentRoom) {
+          const messages = await prisma.message.findMany({
+            where: {
+              roomCode: room
+            },
+            orderBy: {
+              id: "desc"
+            },
+            take: 15
+          })
 
-          const messages =
-            await prisma.message.findMany({
-
-              where: {
-                roomCode: room
-              },
-
-              orderBy: {
-                id: "desc"
-              },
-
-              take: 15
-
-            })
-
-          orderedMessages =
-            messages
-              .reverse()
-              .map(serializeMessage)
-
+          // 👉 NEW: Decrypt the history before reversing and serializing
+          orderedMessages = messages
+            .map(msg => ({ ...msg, content: decryptMessage(msg.content) }))
+            .reverse()
+            .map(serializeMessage)
         }
 
         // SEND INITIAL ROOM DATA
-
         socket.emit(
           "room-joined",
           {
             room,
-            messages:
-              orderedMessages
+            messages: orderedMessages
           }
         )
 
         // ONLINE USERS
-
         io.to(room).emit(
           "online-users",
           users
         )
 
         // SYSTEM MESSAGE
-
         io.to(room).emit(
           "message",
           {
-            id:
-              Date.now(),
-
-            username:
-              "System",
-
-            text:
-              `${username} joined`,
-
-            createdAt:
-              new Date()
+            id: Date.now(),
+            username: "System",
+            text: `${username} joined`,
+            createdAt: new Date()
           }
         )
 
-        console.log(
-          `${username} joined ${room}`
-        )
+        console.log(`${username} joined ${room}`)
 
       } catch (error) {
-
         console.log(error)
-
         socket.emit(
           "error",
           "Failed to join room"
         )
-
       }
-
     }
   )
-
 }

@@ -141,7 +141,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "leave-room") {
     socket.emit("leave-room")
   }
-  
+
   // LOAD OLDER MESSAGES
   if (message.type === "load-more-messages") {
     socket.emit("load-more-messages", message.payload)
@@ -157,7 +157,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // ==========================================
   // 👉 NEW: ARENA CHROME EVENTS (UI to Server)
   // ==========================================
-  
+
   // JOIN GAME
   if (message.type === "join-game") {
     socket.emit("join-game", message.payload)

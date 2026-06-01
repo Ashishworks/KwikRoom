@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io"
 import { prisma } from "@kwikroom/db"
 import { redis } from "@kwikroom/redis"
 import { generateKiwiResponse } from "../../services/ai/kiwiService"
+import { encryptMessage, decryptMessage } from "../../utils/crypto"
 
 export function sendMessageEvent(
   io: Server,
@@ -53,7 +54,7 @@ export function sendMessageEvent(
                 roomCode: room,
                 senderId: socket.id,
                 senderName: username,
-                content: message
+                content: encryptMessage(message) // 👉 ENCRYPTED HERE
               }
             })
             promptId = Number(savedPrompt.id)
@@ -64,7 +65,7 @@ export function sendMessageEvent(
           io.to(room).emit("message", {
             id: promptId,
             username,
-            text: message,
+            text: message, // 👉 PLAIN TEXT EMITTED TO LIVE USERS
             createdAt: promptCreatedAt,
             type: "chat",
             metadata: { ...metadata, isAiInteraction: true }
@@ -82,7 +83,7 @@ export function sendMessageEvent(
                   roomCode: room,
                   senderId: "kiwi-ai-bot", // Static ID for the bot
                   senderName: "Kiwi",
-                  content: kiwiReply
+                  content: encryptMessage(kiwiReply) // 👉 ENCRYPTED HERE
                 }
               })
               kiwiId = Number(savedKiwi.id)
@@ -93,7 +94,7 @@ export function sendMessageEvent(
             io.to(room).emit("message", {
               id: kiwiId,
               username: "Kiwi",
-              text: kiwiReply,
+              text: kiwiReply, // 👉 PLAIN TEXT EMITTED TO LIVE USERS
               createdAt: kiwiCreatedAt,
               type: "chat",
               metadata: { isBot: true, isAiInteraction: true }
@@ -132,7 +133,7 @@ export function sendMessageEvent(
             roomCode: room,
             senderId: socket.id,
             senderName: username,
-            content: message
+            content: encryptMessage(message) // 👉 ENCRYPTED HERE
           }
         })
 
@@ -142,7 +143,7 @@ export function sendMessageEvent(
           {
             id: Number(savedMessage.id),
             username: savedMessage.senderName,
-            text: savedMessage.content,
+            text: message, // 👉 CHANGED: Emitting plain text 'message' instead of encrypted 'savedMessage.content'
             createdAt: savedMessage.createdAt,
             type: "chat" 
           }

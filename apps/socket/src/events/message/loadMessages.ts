@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io"
 import { prisma } from "@kwikroom/db"
 import { serializeMessage } from "@kwikroom/utils"
+import { decryptMessage } from "../../utils/crypto" // 👉 NEW: Import decryption utility
 
 export function loadMessagesEvent(
   io: Server,
@@ -26,9 +27,9 @@ export function loadMessagesEvent(
           take: 15
         })
 
-        // FIX: Replaced manual mapping with your serializeMessage utility 
-        // to ensure BigInt conversion is identical across your app
+        // 👉 NEW: Decrypt the history before reversing and serializing
         const orderedMessages = messages
+          .map(msg => ({ ...msg, content: decryptMessage(msg.content) }))
           .reverse()
           .map(serializeMessage)
 
