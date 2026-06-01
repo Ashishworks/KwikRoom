@@ -156,7 +156,7 @@ export function ChatInput({
             <EmojiPicker 
               onEmojiClick={onEmojiClick} 
               theme={Theme.DARK} 
-              width="310px"
+              width="290px"
               height="340px"
               autoFocusSearch={false}
               lazyLoadEmojis={true}
