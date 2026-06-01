@@ -33,7 +33,6 @@ export default function SidePanel() {
   const [checkingRoom, setCheckingRoom] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   
-  // 👉 NEW: Processing state for loading spinners
   const [isProcessing, setIsProcessing] = useState(false)
 
   const [lastRoomCode, setLastRoomCode] = useState("")
@@ -129,7 +128,7 @@ export default function SidePanel() {
         setCheckingRoom(false)
         if (!message.payload.exists) { 
           setRoomExists(false); 
-          setIsProcessing(false); // 👉 STOP SPINNER
+          setIsProcessing(false); 
           return; 
         }
 
@@ -138,18 +137,20 @@ export default function SidePanel() {
           if (roomPasswordRef.current) {
             chrome.runtime.sendMessage({
               type: "join-room",
-              payload: { room: message.payload.roomCode, username: message.payload.username, password: roomPasswordRef.current }
+              // 👉 FIXED: Use usernameRef.current instead of message.payload.username
+              payload: { room: message.payload.roomCode, username: usernameRef.current, password: roomPasswordRef.current }
             })
             return
           }
           setRequiresPassword(true)
-          setIsProcessing(false); // 👉 STOP SPINNER (Waiting for user to enter password)
+          setIsProcessing(false); 
           return
         }
 
         chrome.runtime.sendMessage({
           type: "join-room",
-          payload: { room: message.payload.roomCode, username: message.payload.username, password: undefined }
+          // 👉 FIXED: Use usernameRef.current instead of message.payload.username
+          payload: { room: message.payload.roomCode, username: usernameRef.current, password: undefined }
         })
       }
 
@@ -165,7 +166,7 @@ export default function SidePanel() {
       }
 
       if (message.type === "room-joined") {
-        setIsProcessing(false) // 👉 STOP SPINNER
+        setIsProcessing(false) 
         setCheckingRoom(false)
         setRequiresPassword(false)
         setRoomExists(true)
@@ -182,7 +183,7 @@ export default function SidePanel() {
       }
 
       if (message.type === "socket-error") {
-        setIsProcessing(false) // 👉 STOP SPINNER
+        setIsProcessing(false) 
         setCheckingRoom(false)
         if (message.payload === "Invalid password") setIncorrectPassword(true)
       }
@@ -215,12 +216,10 @@ export default function SidePanel() {
           if (msg.type === "game_invite" && msg.metadata?.gameInstanceId === gameInstanceId) {
             let isExpired = msg.metadata?.expired || false;
 
-            // Expire if someone leaves OR the room hits max capacity
             if (action === "leave" || (action === "start" && playersJoined?.length === maxPlayers)) {
               isExpired = true;
             }
 
-            // Expire immediately when Word Guess/Scribble creator hits "Start Game"
             if (action === "sync" && gameState?.step === "playing") {
               isExpired = true;
             }
@@ -237,7 +236,6 @@ export default function SidePanel() {
           return msg
         }))
 
-        // Mount the game as long as at least 1 person has joined the creator (including late syncs)
         if ((action === "start" || action === "sync") && playersJoined?.length >= 2) {
           if (playersJoined.includes(usernameRef.current)) {
             const opponents = playersJoined.filter((p: string) => p !== usernameRef.current).join(", ");
@@ -246,11 +244,11 @@ export default function SidePanel() {
 
             setActiveGame(prev => ({
               id: gameInstanceId,
-              type: gameType || prev?.type || "tic_tac_toe", // Safe fallback
+              type: gameType || prev?.type || "tic_tac_toe", 
               opponent: opponents,
               isX: isCreator,
               creator: creator, 
-              players: playersJoined // Track everyone
+              players: playersJoined 
             }));
           }
         }
@@ -263,7 +261,7 @@ export default function SidePanel() {
 
   const createRoom = async () => {
     if (!username) return
-    setIsProcessing(true) // 👉 START SPINNER
+    setIsProcessing(true) 
     chrome.runtime.sendMessage({
       type: "create-room",
       payload: { username, isPersistent, password: isPersistent ? roomPassword : undefined }
@@ -272,7 +270,7 @@ export default function SidePanel() {
 
   const joinRoom = async () => {
     if (!roomCode || !username) return
-    setIsProcessing(true) // 👉 START SPINNER
+    setIsProcessing(true) 
     setCheckingRoom(true)
     let payload = { room: roomCode, username } as any
     if (requiresPassword) {
@@ -339,7 +337,7 @@ export default function SidePanel() {
           checkingRoom={checkingRoom} roomExists={roomExists}
           requiresPassword={requiresPassword} incorrectPassword={incorrectPassword}
           joinRoom={joinRoom} createRoom={createRoom}
-          isProcessing={isProcessing} // 👉 PASS STATE TO LOBBY
+          isProcessing={isProcessing} 
         />
       ) : activeGame ? (
         activeGame.type === "tic_tac_toe" ? (
