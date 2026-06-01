@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, RotateCcw, Keyboard, Trophy, Timer } from "lucide-react"
+import { ArrowLeft, RotateCcw, Keyboard, Trophy, Timer, Users } from "lucide-react"
 import { playSound } from "../components/sound"
 
 interface TypingProps {
@@ -24,25 +24,27 @@ interface GameState {
     timeLeft: number;
     initialTime: number;
     players: { [username: string]: PlayerStats };
+    activePlayers: string[]; // Tracks connected players
 }
 
 const COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"]
 
 const PARAGRAPHS = [
-    "The quick brown fox jumps over the lazy dog. This is a classic pangram that contains every letter of the English alphabet in a single, concise sentence. Typing it fast is a great way to warm up your fingers, build muscle memory, and improve your overall speed and accuracy before tackling a massive document. Many professional typists use this exact sentence to calibrate their mechanical keyboards before entering a major speed typing competition. Beyond just being a fun linguistic trick, mastering this specific sequence of keystrokes ensures that your hands are perfectly aligned over the home row, allowing you to react instantly and maintain a flawless rhythm without constantly looking down at your hands.",
+    "The quick brown fox jumps over the lazy dog. This is a classic pangram that contains every letter of the English alphabet in a single, concise sentence. Typing it fast is a great way to warm up your fingers, build muscle memory, and improve your overall speed and accuracy before tackling a massive document. Many professional typists use this exact sentence to calibrate their mechanical keyboards before entering a major speed typing competition. Beyond just being a fun linguistic trick, mastering this specific sequence of keystrokes ensures that your hands are perfectly aligned over the home row, allowing you to react instantly and maintain a flawless rhythm without constantly looking down at your hands. Historically, typewriter technicians used this phrase to ensure all the mechanical arms were functioning smoothly without jamming together. Today, it remains the ultimate benchmark for testing switch actuation, tactile feedback, and ergonomic layouts.",
     
-    "The history of space exploration is filled with moments of unimaginable triumph and heartbreaking tragedy, serving as a testament to our relentless curiosity. From the early days of the legendary Apollo missions to the modern era of reusable rockets landing gracefully on autonomous drone ships, humanity's burning desire to reach the stars has never wavered. Every successful launch represents millions of hours of meticulous engineering, intense mathematical calculations, and rigorous testing by the most brilliant minds on the planet. As we look toward establishing permanent colonies on Mars and exploring the icy moons of Jupiter, the next generation of brave astronauts will continue pushing the boundaries of what is possible, turning science fiction into our everyday reality.",
+    "The history of space exploration is filled with moments of unimaginable triumph and heartbreaking tragedy, serving as a testament to our relentless curiosity. From the early days of the legendary Apollo missions to the modern era of reusable rockets landing gracefully on autonomous drone ships, humanity's burning desire to reach the stars has never wavered. Every successful launch represents millions of hours of meticulous engineering, intense mathematical calculations, and rigorous testing by the most brilliant minds on the planet. As we look toward establishing permanent colonies on Mars and exploring the icy moons of Jupiter, the next generation of brave astronauts will continue pushing the boundaries of what is possible. Telescopes like James Webb are peering back billions of years into the cosmic dawn, capturing the faint infrared glow of the universe's first galaxies, and proving that our quest for knowledge is truly infinite.",
     
-    "In the absolute middle of a vast, uncharted ocean, a small, fog-covered island holds the forgotten secrets of a highly advanced ancient civilization. Countless brave explorers have searched for these shores for centuries, relying on faded maps and whispered rumors, but only those with a keen eye and a steady hand can uncover the truth hidden beneath the heavy sand. Legends passed down through generations say that the intricate golden artifacts buried deep within the island's underground temples possess a mysterious, glowing energy that completely defies the laws of modern science. Whoever manages to decipher the cryptic runes guarding the entrance will not only rewrite the history books but also unlock a power that has been dormant for thousands of years."
+    "In the absolute middle of a vast, uncharted ocean, a small, fog-covered island holds the forgotten secrets of a highly advanced ancient civilization. Countless brave explorers have searched for these shores for centuries, relying on faded maps and whispered rumors, but only those with a keen eye and a steady hand can uncover the truth hidden beneath the heavy sand. Legends passed down through generations say that the intricate golden artifacts buried deep within the island's underground temples possess a mysterious, glowing energy that completely defies the laws of modern science. Whoever manages to decipher the cryptic runes guarding the entrance will not only rewrite the history books but also unlock a power that has been dormant for thousands of years. Modern submersibles have recently detected strange geometric anomalies resting near the tectonic fault lines, suggesting the ruins extend far deeper into the abyss than anyone ever originally anticipated."
 ]
 
 export function TypingArena({ isMuted, roomCode, username, activeGame, setActiveGame }: TypingProps) {
     const [gameState, setGameState] = useState<GameState>({
-        step: "setup", textIndex: 0, timeLeft: 30, initialTime: 30, players: {}
+        step: "setup", textIndex: 0, timeLeft: 30, initialTime: 30, players: {}, activePlayers: activeGame.players || []
     })
 
     const [userInput, setUserInput] = useState("")
     const inputRef = useRef<HTMLInputElement>(null)
+    const activeCharRef = useRef<HTMLSpanElement>(null) // 👉 NEW: Tracks the current typing position
 
     const [selectedDuration, setSelectedDuration] = useState<number | "custom">(30)
     const [customDuration, setCustomDuration] = useState("")
@@ -57,10 +59,24 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
         }
     }, [gameState.step])
 
+    // 👉 NEW: Auto-Scroll Watcher
+    useEffect(() => {
+        if (activeCharRef.current && gameState.step === "playing") {
+            // Scrolls the container so the active line is always vertically centered
+            activeCharRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+    }, [userInput.length, gameState.step])
+
     // Real-time socket receiver
     useEffect(() => {
         const listener = (msg: any) => {
             if (msg.type === "game-updated" && msg.payload.gameInstanceId === activeGame.id) {
+                
+                // 👉 FIX: Keep track of players as they join
+                if (msg.payload.action === "start") {
+                    setGameState(prev => ({ ...prev, activePlayers: msg.payload.playersJoined || prev.activePlayers }))
+                }
+
                 if (msg.payload.action === "sync") {
                     setGameState(msg.payload.gameState)
                     if (msg.payload.gameState.step === "playing" && gameState.step === "setup") {
@@ -79,16 +95,32 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
                     }))
                 }
 
-                if (msg.payload.action === "leave" && msg.payload.username === activeGame.creator) setActiveGame(null)
+                if (msg.payload.action === "leave") {
+                    const leaver = msg.payload.username
+                    const remaining = gameState.activePlayers.filter(p => p !== leaver)
+                    if (leaver === activeGame.creator || remaining.length <= 1) setActiveGame(null)
+                    else setGameState(prev => ({ ...prev, activePlayers: remaining }))
+                }
+
                 if (msg.payload.action === "restart") {
-                    setGameState(prev => ({ step: "setup", textIndex: 0, timeLeft: prev.initialTime, initialTime: prev.initialTime, players: prev.players }))
+                    setGameState(prev => ({ step: "setup", textIndex: 0, timeLeft: prev.initialTime, initialTime: prev.initialTime, players: prev.players, activePlayers: prev.activePlayers }))
                     setUserInput("")
                 }
             }
         }
         chrome.runtime.onMessage.addListener(listener)
         return () => chrome.runtime.onMessage.removeListener(listener)
-    }, [activeGame.id, activeGame.creator, isMuted, setActiveGame, gameState.step])
+    }, [activeGame.id, activeGame.creator, isMuted, setActiveGame, gameState.step, gameState.activePlayers])
+
+    // Auto-sync state to late joiners (Creator acts as host)
+    useEffect(() => {
+        if (isCreator && gameState.step !== "setup") {
+            chrome.runtime.sendMessage({
+                type: "game-action",
+                payload: { room: roomCode, gameInstanceId: activeGame.id, action: "sync", gameState }
+            })
+        }
+    }, [gameState.activePlayers.length]) 
 
     // Universal Local Timer
     useEffect(() => {
@@ -155,10 +187,8 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
             finalTime = selectedDuration
         }
 
-        const activePlayers = activeGame.players || []
         const initialPlayersState: { [key: string]: PlayerStats } = {}
-
-        activePlayers.forEach((p, idx) => {
+        gameState.activePlayers.forEach((p, idx) => {
             initialPlayersState[p] = { wpm: 0, accuracy: 100, index: 0, color: COLORS[idx % COLORS.length] }
         })
 
@@ -196,6 +226,9 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
                 <h2 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center justify-center gap-2">
                     <Keyboard size={18} className="text-indigo-400" /> Typing Battle
                 </h2>
+                <p className="text-xs text-zinc-500 mt-1 flex items-center justify-center gap-1">
+                    <Users size={12} /> {gameState.activePlayers.length}/7 Players
+                </p>
             </div>
 
             <div className="flex-1 w-full max-w-md flex flex-col gap-4 overflow-hidden">
@@ -273,8 +306,8 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
                             autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
                         />
 
-                        {/* 👉 FIX: whitespace-pre-wrap on container & leading-[2.25rem] for better line spacing */}
-                        <div className="bg-zinc-900/40 p-5 rounded-xl border border-zinc-800/50 flex-1 overflow-y-auto text-sm leading-[2.25rem] font-mono shadow-inner relative whitespace-pre-wrap">
+                        {/* 👉 FIX: Reduced line spacing (leading-[1.8rem]) + scrollbar-none to make it look clean */}
+                        <div className="bg-zinc-900/40 p-5 rounded-xl border border-zinc-800/50 flex-1 overflow-y-auto text-sm leading-[1.8rem] font-mono shadow-inner relative whitespace-pre-wrap scrollbar-none">
                             {targetText.split("").map((char, i) => {
 
                                 let colorClass = "text-zinc-600"
@@ -283,23 +316,23 @@ export function TypingArena({ isMuted, roomCode, username, activeGame, setActive
                                 const opponentsHere = Object.entries(gameState.players).filter(([name, p]) => p.index === i && name !== username)
 
                                 return (
-                                    // 👉 FIX: whitespace-pre on individual characters to preserve space width
-                                    <span key={i} className={`relative inline-block whitespace-pre ${colorClass}`}>
-
+                                    <span 
+                                        key={i} 
+                                        // 👉 FIX: Attach the ref to the current typing index
+                                        ref={i === userInput.length ? activeCharRef : null} 
+                                        className={`relative inline-block whitespace-pre ${colorClass}`}
+                                    >
                                         {opponentsHere.map(([name, p], idx) => (
                                             <div key={name}>
-                                                {/* The Name Tag (Floating above the text) */}
-                                                <div className="absolute bottom-[90%] left-0 flex flex-col items-start -ml-[1px] transition-all" style={{ zIndex: 10 + idx }}>
+                                                <div className="absolute bottom-[85%] left-0 flex flex-col items-start -ml-[1px] transition-all" style={{ zIndex: 10 + idx }}>
                                                     <span className="text-[9px] px-1.5 py-0.5 rounded text-white font-sans font-bold leading-none shadow-md whitespace-nowrap" style={{ backgroundColor: p.color }}>
                                                         {name}
                                                     </span>
                                                 </div>
-                                                {/* 👉 FIX: Dynamic Percentage Cursor Line */}
                                                 <div className="absolute left-0 top-[10%] h-[80%] w-[2px]" style={{ backgroundColor: p.color, zIndex: 10 + idx }} />
                                             </div>
                                         ))}
 
-                                        {/* 👉 FIX: Dynamic Percentage Local Cursor */}
                                         {i === userInput.length && (
                                             <span className="absolute left-0 top-[10%] h-[80%] w-[2px] bg-zinc-300 animate-pulse z-20" />
                                         )}

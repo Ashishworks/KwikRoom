@@ -28,6 +28,11 @@ export function ChatInput({
   // Emoji Picker State
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
+  // 👉 NEW: Ref for toggle button to prevent click-outside event collision
+  const emojiButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Ref to handle height expansion/shrinkage
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Typing Refs
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -42,6 +47,23 @@ export function ChatInput({
     if (!suggestionSearch) return allMentionables
     return allMentionables.filter(item => item.toLowerCase().includes(suggestionSearch))
   }, [allMentionables, suggestionSearch])
+
+  // Auto-growing & auto-shrinking text layout monitor
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    // Force back to the exact 1-line baseline first
+    textarea.style.height = "36px"
+
+    // Measure if the content is fighting to overflow that 36px boundary
+    const scrollHeight = textarea.scrollHeight
+
+    // Only grow if the text actually wraps or hits a newline pushing past 36px
+    if (scrollHeight > 36) {
+      textarea.style.height = `${Math.min(scrollHeight, 128)}px`
+    }
+  }, [message])
 
   const emitTyping = (isTyping: boolean) => {
     chrome.runtime.sendMessage({
@@ -81,7 +103,7 @@ export function ChatInput({
     if (message.trim()) {
       sendMessage()
       setShowSuggestions(false)
-      setShowEmojiPicker(false) // Close picker on send
+      setShowEmojiPicker(false) 
       emitTyping(false)
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     }
@@ -100,10 +122,16 @@ export function ChatInput({
     setMessage(message + emojiObject.emoji)
   }
 
-  // Close emoji picker when clicking outside
+  // 👉 FIXED: Close emoji picker when clicking outside, excluding the toggle button itself
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+      if (
+        showEmojiPicker &&
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(e.target as Node) &&
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(e.target as Node)
+      ) {
         setShowEmojiPicker(false)
       }
     }
@@ -122,14 +150,17 @@ export function ChatInput({
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute bottom-[115%] left-0 z-50 shadow-2xl"
+            className="absolute bottom-[115%] left-0 z-50 shadow-2xl origin-bottom-left"
           >
+            {/* 👉 FIXED: Added explicit height and width props to make the picker smaller */}
             <EmojiPicker 
               onEmojiClick={onEmojiClick} 
               theme={Theme.DARK} 
+              width="310px"
+              height="340px"
               autoFocusSearch={false}
               lazyLoadEmojis={true}
-              searchPlaceHolder="Search emojis..."
+              searchPlaceHolder="Search..."
             />
           </motion.div>
         )}
@@ -171,8 +202,9 @@ export function ChatInput({
         )}
       </AnimatePresence>
 
-      {/* Emoji Toggle Button */}
+      {/* 👉 FIXED: Added emojiButtonRef to toggle reliably */}
       <motion.button
+        ref={emojiButtonRef}
         type="button"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -182,12 +214,14 @@ export function ChatInput({
             ? "bg-indigo-500/20 text-indigo-400" 
             : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
         }`}
-        title="Open Emojis"
+        title="Toggle Emojis"
       >
         <Smile size={18} strokeWidth={2} />
       </motion.button>
 
+      {/* TEXTAREA WITH BALANCED BOUNDS AND SCROLLBAR HIDING */}
       <textarea
+        ref={textareaRef}
         value={message}
         onChange={(e) => handleInputChange(e.target.value)}
         onKeyDown={(e) => {
@@ -219,9 +253,12 @@ export function ChatInput({
             handleSend()
           }
         }}
-        placeholder="Say hello, or chat with @kiwi AI..."
-        rows={1}
-        className="flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-600 text-zinc-200 resize-none min-h-[36px] max-h-32 overflow-y-auto scrollbar-none"
+        placeholder="Say hi, or chat with @kiwi AI"
+        className="flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-600 text-zinc-200 resize-none min-h-[36px] max-h-32 overflow-y-auto scrollbar-none style-scrollbar-hidden"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none"
+        }}
       />
 
       <motion.button

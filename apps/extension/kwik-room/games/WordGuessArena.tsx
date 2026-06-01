@@ -38,7 +38,6 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
     const listener = (msg: any) => {
       if (msg.type === "game-updated" && msg.payload.gameInstanceId === activeGame.id) {
         
-        // 👉 NEW: Catch new players joining and update the in-game counter
         if (msg.payload.action === "start") {
            setGameState(prev => ({ ...prev, activePlayers: msg.payload.playersJoined || prev.activePlayers }))
         }
@@ -47,19 +46,32 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
            setGameState(msg.payload.gameState)
            playSound("receive", isMuted)
         }
+
+        // 👉 NEW: REAL-TIME LIGHTWEIGHT GUESS RECEIVER (Prevents state clobbering)
+        if (msg.payload.action === "guess") {
+           const { username: guesserName, guess } = msg.payload
+           setGameState(prev => {
+             const isWin = guess === prev.word
+             return {
+               ...prev,
+               guesses: [{ user: guesserName, guess }, ...prev.guesses],
+               step: isWin ? "ended" : prev.step,
+               winner: isWin ? guesserName : prev.winner
+             }
+           })
+           playSound("receive", isMuted)
+        }
         
         // 👉 CUSTOM LEAVE LOGIC
         if (msg.payload.action === "leave") {
            const leaver = msg.payload.username;
-           const remaining = gameState.activePlayers.filter(p => p !== leaver);
-
-           // Game ends ONLY if the creator leaves, OR if the creator is the only one left
-           if (leaver === activeGame.creator || remaining.length <= 1) {
-               setActiveGame(null);
-           } else {
-               // A guesser left. Update the players list but keep the game going!
-               setGameState(prev => ({ ...prev, activePlayers: remaining }));
-           }
+           setGameState(prev => {
+             const remaining = prev.activePlayers.filter(p => p !== leaver);
+             if (leaver === activeGame.creator || remaining.length <= 1) {
+                 setTimeout(() => setActiveGame(null), 0);
+             }
+             return { ...prev, activePlayers: remaining };
+           });
         }
 
         if (msg.payload.action === "restart") {
@@ -70,7 +82,7 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
     }
     chrome.runtime.onMessage.addListener(listener)
     return () => chrome.runtime.onMessage.removeListener(listener)
-  }, [activeGame.id, activeGame.creator, isMuted, setActiveGame, gameState.activePlayers])
+  }, [activeGame.id, activeGame.creator, isMuted, setActiveGame])
 
   // Automatically sync state to late joiners (Creator acts as host)
   useEffect(() => {
@@ -80,7 +92,7 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
         payload: { room: roomCode, gameInstanceId: activeGame.id, action: "sync", gameState }
       })
     }
-  }, [activeGame.players?.length]) // 👉 FIX: Triggers sync whenever the player count changes
+  }, [activeGame.players?.length]) 
 
   const syncState = (newState: GameState) => {
     setGameState(newState)
@@ -91,7 +103,7 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
     playSound("send", isMuted)
   }
 
-  // 👉 P1 Actions
+  // 👉 P1 Actions (Safe to use syncState because only the host modifies these configurations)
   const startGame = () => {
     if (!setupWord.trim() || !setupDesc.trim()) return
     syncState({ ...gameState, step: "playing", word: setupWord.trim().toUpperCase(), desc: setupDesc.trim() })
@@ -108,23 +120,28 @@ export function WordGuessArena({ isMuted, roomCode, username, activeGame, setAct
     syncState({ ...gameState, revealed: [...gameState.revealed, index] })
   }
 
-  // 👉 P2 Actions
+  // ==========================================
+  // 👉 FIX: DEDICATED LIGHTWEIGHT GUESS EMIT
+  // ==========================================
   const makeGuess = () => {
     if (!currentGuess.trim()) return
     const guess = currentGuess.trim().toUpperCase()
-    const isWin = guess === gameState.word
     
-    syncState({ 
-      ...gameState, 
-      guesses: [{ user: username, guess }, ...gameState.guesses],
-      step: isWin ? "ended" : gameState.step,
-      winner: isWin ? username : gameState.winner
+    chrome.runtime.sendMessage({
+      type: "game-action",
+      payload: { 
+        room: roomCode, 
+        gameInstanceId: activeGame.id, 
+        action: "guess", 
+        username, 
+        guess 
+      }
     })
     setCurrentGuess("")
+    playSound("send", isMuted)
   }
 
   const exitGame = () => {
-    // 👉 Send username with the leave action so we know who left!
     chrome.runtime.sendMessage({
       type: "game-action",
       payload: { room: roomCode, gameInstanceId: activeGame.id, action: "leave", username }

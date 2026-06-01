@@ -39,9 +39,12 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
   const [chatInput, setChatInput] = useState("")
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // Resizer State
+  // Resizer & Spy Tab State
   const [actionPanelHeight, setActionPanelHeight] = useState(200)
   const isDragging = useRef(false)
+  
+  // 👉 NEW: State to track which panel the Spy is currently looking at
+  const [spyTab, setSpyTab] = useState<"intercept" | "accuse">("intercept")
 
   const isCreator = activeGame.isX
   const amISpy = gameState.spy === username
@@ -76,9 +79,22 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
   useEffect(() => {
     const listener = (msg: any) => {
       if (msg.type === "game-updated" && msg.payload.gameInstanceId === activeGame.id) {
+        
+        if (msg.payload.action === "start") {
+           setGameState(prev => ({ ...prev, activePlayers: msg.payload.playersJoined || prev.activePlayers }))
+        }
+
         if (msg.payload.action === "sync") {
           setGameState(msg.payload.gameState)
           if (msg.payload.gameState.step === "playing") playSound("receive", isMuted)
+        }
+
+        if (msg.payload.action === "chat") {
+          setGameState(prev => ({
+            ...prev,
+            messages: [...prev.messages, { user: msg.payload.username, text: msg.payload.text }]
+          }))
+          playSound("receive", isMuted)
         }
         
         if (msg.payload.action === "leave") {
@@ -93,6 +109,7 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
             step: "setup", spy: "", location: "", activePlayers: prev.activePlayers,
             accusedPlayer: null, votes: {}, winner: null, winReason: "", timeLeft: 240, messages: []
           }))
+          setSpyTab("intercept") // Reset spy tab on restart
           playSound("swoosh", isMuted)
         }
       }
@@ -100,6 +117,15 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
     chrome.runtime.onMessage.addListener(listener)
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [activeGame.id, activeGame.creator, isMuted, setActiveGame, gameState.activePlayers])
+
+  useEffect(() => {
+    if (isCreator && gameState.step !== "setup") {
+      chrome.runtime.sendMessage({
+        type: "game-action",
+        payload: { room: roomCode, gameInstanceId: activeGame.id, action: "sync", gameState }
+      })
+    }
+  }, [activeGame.players?.length]) 
 
   // 👉 TIMER TICKER (Host only)
   useEffect(() => {
@@ -132,7 +158,6 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [gameState.messages])
 
-  // 👉 STATE SYNC DISPATCHER
   const syncState = (newState: GameState) => {
     setGameState(newState)
     chrome.runtime.sendMessage({
@@ -156,9 +181,9 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
 
   const sendChatMessage = () => {
     if (!chatInput.trim()) return
-    syncState({
-      ...gameState,
-      messages: [...gameState.messages, { user: username, text: chatInput.trim() }]
+    chrome.runtime.sendMessage({
+      type: "game-action",
+      payload: { room: roomCode, gameInstanceId: activeGame.id, action: "chat", username, text: chatInput.trim() }
     })
     setChatInput("")
     playSound("send", isMuted)
@@ -314,18 +339,48 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
             >
               {amISpy ? (
                 <div className="flex-1 bg-zinc-900/30 rounded-xl border border-zinc-800 p-2 flex flex-col overflow-hidden">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 block shrink-0">Intercept Location (Instant Win)</span>
-                  <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-1.5 pr-1 scrollbar-none">
-                    {LOCATIONS.map((loc) => (
-                      <button key={loc} onClick={() => handleSpyGuess(loc)} className="text-left px-2.5 py-2 text-xs bg-zinc-900/80 border border-zinc-800 hover:border-red-500/50 rounded-md transition-colors text-zinc-300 font-medium truncate">
-                        {loc}
-                      </button>
-                    ))}
+                  
+                  {/* 👉 NEW: Spy Navigation Tabs */}
+                  <div className="flex gap-1 mb-2 shrink-0 bg-zinc-950 p-1 rounded-lg border border-zinc-800/50">
+                    <button 
+                      onClick={() => setSpyTab("intercept")} 
+                      className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-md transition-colors ${spyTab === "intercept" ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+                    >
+                      Intercept
+                    </button>
+                    <button 
+                      onClick={() => setSpyTab("accuse")} 
+                      className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-md transition-colors ${spyTab === "accuse" ? "bg-red-600 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+                    >
+                      Accuse
+                    </button>
                   </div>
+
+                  {spyTab === "intercept" ? (
+                    <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-1.5 pr-1 scrollbar-none">
+                      {LOCATIONS.map((loc) => (
+                        <button key={loc} onClick={() => handleSpyGuess(loc)} className="text-left px-2.5 py-2 text-xs bg-zinc-900/80 border border-zinc-800 hover:border-indigo-500/50 rounded-md transition-colors text-zinc-300 font-medium truncate">
+                          {loc}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-1.5 pr-1 scrollbar-none">
+                      {gameState.activePlayers.map((player) => (
+                        <button key={player} disabled={player === username} onClick={() => handleAccuse(player)} className={`flex items-center justify-between px-2.5 py-2 text-xs border rounded-md transition-colors font-medium truncate
+                          ${player === username ? "bg-zinc-950/40 border-zinc-900 text-zinc-600" : "bg-zinc-900/80 border-zinc-800 hover:border-red-500 text-zinc-300"}`}
+                        >
+                          <span className="truncate">{player === username ? `${player} (You)` : player}</span>
+                          {player !== username && <AlertTriangle size={12} className="text-zinc-500 shrink-0 ml-1" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                 </div>
               ) : (
                 <div className="flex-1 bg-zinc-900/30 rounded-xl border border-zinc-800 p-2 flex flex-col overflow-hidden">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 block shrink-0">Accuse Suspect</span>
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 block shrink-0 pl-1">Accuse Suspect</span>
                   <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-1.5 pr-1 scrollbar-none">
                     {gameState.activePlayers.map((player) => (
                       <button key={player} disabled={player === username} onClick={() => handleAccuse(player)} className={`flex items-center justify-between px-2.5 py-2 text-xs border rounded-md transition-colors font-medium truncate
