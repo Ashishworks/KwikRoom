@@ -1,4 +1,4 @@
-import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot, Bird, Loader2 } from "lucide-react"
+import { Sparkles, LogIn, PlusCircle, Shield, Key, EyeOff, Eye, Lock, Unlock, History, MessageSquareDot, Bird, Loader2, AlertCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { playSound } from "./sound" 
 
@@ -23,7 +23,7 @@ interface LobbyProps {
     incorrectPassword: boolean
     joinRoom: () => void
     createRoom: () => void
-    isProcessing?: boolean // 👉 NEW: Added to handle active network request state
+    isProcessing?: boolean
 }
 
 export function Lobby({
@@ -32,13 +32,12 @@ export function Lobby({
     activeTab, setActiveTab, isPersistent, setIsPersistent, roomPassword, setRoomPassword,
     username, setUsername, roomCode, setRoomCode, showPassword, setShowPassword,
     checkingRoom, roomExists, requiresPassword, incorrectPassword, joinRoom, createRoom,
-    isProcessing = false // 👉 NEW: Defaults to false if not provided by parent
+    isProcessing = false
 }: LobbyProps) {
 
     const canCreateRoom = username.trim().length > 0 && (!isPersistent || roomPassword.trim().length > 0)
     const canJoinRoom = username.trim().length > 0 && roomCode.trim().length > 0
 
-    // 👉 NEW: Unified form submit handler to support the "Enter" key
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (isProcessing) return
@@ -93,7 +92,6 @@ export function Lobby({
                     </button>
                 </div>
 
-                {/* 👉 NEW: Wrapped in a <form> tag to catch Enter key presses */}
                 <form onSubmit={handleSubmit} className="space-y-3.5">
                     <input
                         value={username}
@@ -147,12 +145,38 @@ export function Lobby({
                                     )}
                                 </AnimatePresence>
 
-                                {!roomExists && roomCode.length > 0 && !checkingRoom && (
-                                    <p className="text-xs text-red-400 px-1">Room does not exist</p>
-                                )}
-                                {incorrectPassword && (
-                                    <p className="text-xs text-red-400 px-1 text-center">Incorrect room password</p>
-                                )}
+                                {/* 👉 NEW: Enhanced Error Banners */}
+                                <AnimatePresence mode="popLayout">
+                                    {!roomExists && roomCode.length > 0 && !checkingRoom && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, height: "auto", scale: 1 }}
+                                            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="flex items-center justify-center gap-2 px-3 py-2.5 mt-1 text-red-400 border rounded-xl bg-red-500/10 border-red-500/20 shadow-inner">
+                                                <AlertCircle size={15} className="shrink-0" />
+                                                <p className="text-xs font-medium tracking-wide">Room does not exist</p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                    {incorrectPassword && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, height: "auto", scale: 1 }}
+                                            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="flex items-center justify-center gap-2 px-3 py-2.5 mt-1 text-red-400 border rounded-xl bg-red-500/10 border-red-500/20 shadow-inner">
+                                                <AlertCircle size={15} className="shrink-0" />
+                                                <p className="text-xs font-medium tracking-wide">Incorrect room password</p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
                                 {requiresPassword && (
                                     <div className="relative flex items-center">
                                         <Key className="absolute left-3.5 w-3.5 h-3.5 text-zinc-600" />
@@ -174,10 +198,10 @@ export function Lobby({
                                 )}
 
                                 <motion.button
-                                    type="submit" // 👉 NEW: Changed to submit
+                                    type="submit"
                                     whileHover={canJoinRoom && !checkingRoom && !isProcessing ? { scale: 1.01 } : {}}
                                     whileTap={canJoinRoom && !checkingRoom && !isProcessing ? { scale: 0.99 } : {}}
-                                    disabled={!canJoinRoom || checkingRoom || isProcessing} // 👉 NEW: Disabled during processing
+                                    disabled={!canJoinRoom || checkingRoom || isProcessing}
                                     className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold tracking-wide transition shadow-lg shadow-indigo-600/15 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Joining...</> : "Join Room"}
@@ -239,10 +263,10 @@ export function Lobby({
                                 </div>
 
                                 <motion.button
-                                    type="submit" // 👉 NEW: Changed to submit
+                                    type="submit"
                                     whileHover={canCreateRoom && !isProcessing ? { scale: 1.01 } : {}}
                                     whileTap={canCreateRoom && !isProcessing ? { scale: 0.99 } : {}}
-                                    disabled={!canCreateRoom || isProcessing} // 👉 NEW: Disabled during processing
+                                    disabled={!canCreateRoom || isProcessing}
                                     className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold tracking-wide transition shadow-lg shadow-indigo-600/15 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Creating...</> : "Create Room"}
