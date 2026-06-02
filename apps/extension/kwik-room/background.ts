@@ -6,7 +6,7 @@ import { io } from "socket.io-client"
 
 // prod check https://kwikroom-socket.onrender.com/ 
 // local check http://127.0.0.1:4000
-const socket = io("http://127.0.0.1:4000", {
+const socket = io("https://kwikroom-socket.onrender.com", {
   transports: ["websocket"]
 })
 

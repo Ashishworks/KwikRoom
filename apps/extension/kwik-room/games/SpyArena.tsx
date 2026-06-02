@@ -40,7 +40,7 @@ export function SpyArena({ isMuted, roomCode, username, activeGame, setActiveGam
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Resizer & Spy Tab State
-  const [actionPanelHeight, setActionPanelHeight] = useState(200)
+  const [actionPanelHeight, setActionPanelHeight] = useState(250)
   const isDragging = useRef(false)
   
   const [spyTab, setSpyTab] = useState<"intercept" | "accuse">("intercept")
