@@ -26,19 +26,19 @@ Beyond standard chat, KwikRoom features an integrated AI assistant and a suite o
 
 ### The Arena (Multiplayer Mini-Games)
 
-[cite_start]KwikRoom transforms standard chat environments into fully interactive collaborative spaces through "The Arena"—a suite of real-time multiplayer mini-games playable directly inside the chat interface without requiring users to leave the room[cite: 1667].
+KwikRoom transforms standard chat environments into fully interactive collaborative spaces through "The Arena"—a suite of real-time multiplayer mini-games playable directly inside the chat interface without requiring users to leave the room.
 
 **Game State Architecture**
-The game infrastructure utilizes a highly optimized, event-driven socket layer. [cite_start]State synchronization is handled via lightweight action packets to prevent state collisions in lobbies of up to 7 players[cite: 1668]. [cite_start]For persistent rooms, the architecture leverages a flexible `metadata` JSON column in the PostgreSQL database[cite: 1316]. [cite_start]This allows the system to pass and store complex, dynamic game states (like cursor positions, canvas data, or voting records) without requiring constant alterations to the underlying database schema[cite: 1316].
+The game infrastructure utilizes a highly optimized, event-driven socket layer. State synchronization is handled via lightweight action packets to prevent state collisions in lobbies of up to 7 players. For persistent rooms, the architecture leverages a flexible `metadata` JSON column in the PostgreSQL database. This allows the system to pass and store complex, dynamic game states (like cursor positions, canvas data, or voting records) without requiring constant alterations to the underlying database schema.
 
 **Supported Games:**
 
-* **Typing Battle:** A highly competitive, real-time typing race. [cite_start]Features include live opponent cursors tracking exact positions on the text, dynamic auto-scrolling, live Words Per Minute (WPM) and accuracy calculations, host-configured custom game durations, and a post-game statistics leaderboard[cite: 1669].
-* **Scribble:** A collaborative drawing and guessing game built on a custom HTML5 Canvas. [cite_start]It features an advanced stack-based Flood Fill algorithm for the paint bucket tool, adjustable brush strokes and colors, and comprehensive undo/redo history stacks[cite: 1670]. Drawing coordinates are emitted via WebSockets for zero-latency visual syncing.
-* [cite_start]**The Spy:** A tense, hidden-role social deduction game supporting up to 7 players[cite: 1671]. The system assigns a secret location to the crew while keeping the Spy in the dark. [cite_start]It features a dedicated interrogation chat log, live emergency voting mechanics, a strict countdown timer, and a dynamic tabbed interface allowing the Spy to secretly intercept the location or frame innocent crewmates[cite: 1671].
-* **Word Guess:** An interactive word deduction game where the room host sets a secret word and a clue. [cite_start]Features include dynamic, host-controlled letter reveals and a real-time guess feed where incorrect attempts are crossed out for all players to see[cite: 1317].
-* [cite_start]**Classic Board Games:** Includes synchronized implementations of Tic-Tac-Toe and Four in a Row, demonstrating the platform's capability to handle strict turn-based state management with zero latency[cite: 1672].
-* [cite_start]**Interactive Invites & Modals:** Games are initiated via rich UI game invites sent directly into the chat stream, which automatically expire after 60 seconds to keep the chat clean[cite: 1673]. [cite_start]Additionally, every game features a dedicated "How to Play" glassmorphic modal overlay containing precise, game-specific instructions[cite: 1321].
+* **Typing Battle:** A highly competitive, real-time typing race. Features include live opponent cursors tracking exact positions on the text, dynamic auto-scrolling, live Words Per Minute (WPM) and accuracy calculations, host-configured custom game durations, and a post-game statistics leaderboard.
+* **Scribble:** A collaborative drawing and guessing game built on a custom HTML5 Canvas. It features an advanced stack-based Flood Fill algorithm for the paint bucket tool, adjustable brush strokes and colors, and comprehensive undo/redo history stacks. Drawing coordinates are emitted via WebSockets for low-latency visual syncing.
+* **The Spy:** A tense, hidden-role social deduction game supporting up to 7 players. The system assigns a secret location to the crew while keeping the Spy in the dark. It features a dedicated interrogation chat log, live emergency voting mechanics, a strict countdown timer, and a dynamic tabbed interface allowing the Spy to secretly intercept the location or frame innocent crewmates.
+* **Word Guess:** An interactive word deduction game where the room host sets a secret word and a clue. Features include dynamic, host-controlled letter reveals and a real-time guess feed where incorrect attempts are crossed out for all players to see.
+* **Classic Board Games:** Includes synchronized implementations of Tic-Tac-Toe and Four in a Row, demonstrating the platform's capability to handle strict turn-based state management with zero latency.
+* **Interactive Invites & Modals:** Games are initiated via rich UI game invites sent directly into the chat stream, which automatically expire after 60 seconds to keep the chat clean. Additionally, every game features a dedicated "How to Play" glassmorphic modal overlay containing precise, game-specific instructions.
 
 ### Premium UI & Sound Engine
 * **Modern Glassmorphism:** Sleek, responsive interface featuring transparent blurs, smooth Framer Motion animations, interactive autocomplete mentions, and custom minimal scrollbars.
@@ -63,10 +63,10 @@ When a user attempts to join a room:
 4. Upon successful validation, the server fetches the encrypted message history from Supabase, runs an AES-256 decryption loop locally on the server, and hydrates the client UI with the decrypted payload.
 
 ### Stage 3: Realtime Messaging & "Fire-and-Forget" Encryption
-To ensure zero-latency communication, KwikRoom uses an Optimistic Broadcasting model:
-1. **Zero-Latency Emitter:** When a message or game action is sent, the Socket server immediately broadcasts the plain text to all connected clients in the room synchronously.
+To ensure low-latency communication, KwikRoom uses an Optimistic Broadcasting model:
+1. **Low-Latency Emitter:** When a message or game action is sent, the Socket server immediately broadcasts the plain text to all connected clients in the room synchronously.
 2. **Async Cryptography:** A background Crypto Worker generates a random Initialization Vector (IV), encrypts the message using an AES-256-CBC cipher, and writes the ciphertext safely to the Supabase database using Prisma.
-3. **AI Interception:** If a message contains the @kiwi mention, the Action Router triggers the Kiwi AI Bot, which streams its response back through the Zero-Latency Emitter.
+3. **AI Interception:** If a message contains the @kiwi mention, the Action Router triggers the Kiwi AI Bot, which streams its response back through the low-latency Emitter.
 
 ---
 
